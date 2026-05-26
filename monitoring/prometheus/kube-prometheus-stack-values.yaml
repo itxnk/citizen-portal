@@ -1,0 +1,163 @@
+# Helm values for kube-prometheus-stack
+# Install: helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#            --namespace monitoring --create-namespace \
+#            -f monitoring/prometheus/kube-prometheus-stack-values.yaml
+
+fullnameOverride: kube-prometheus-stack
+
+# ─── Prometheus ───────────────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    retentionSize: "45GB"
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+    # Pick up ALL ServiceMonitors in all namespaces (not just this release)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+    # Additional scrape configs for components not using ServiceMonitor CRDs
+    additionalScrapeConfigs:
+      - job_name: "desc-backend-direct"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["desc-app"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+# ─── Grafana ──────────────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+  adminPassword: "DescAdmin@2026!"
+
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/grafana"
+      serve_from_sub_path: true
+    auth.anonymous:
+      enabled: false
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: desc-dashboards
+          orgId: 1
+          folder: DESC
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/desc
+
+  dashboardsConfigMaps:
+    desc: "desc-grafana-dashboards"
+
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+
+# ─── Alertmanager ─────────────────────────────────────────────────────────────
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+
+  config:
+    global:
+      resolve_timeout: 5m
+      slack_api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    route:
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: slack-notifications
+      routes:
+        - match:
+            severity: critical
+          receiver: slack-notifications
+    receivers:
+      - name: slack-notifications
+        slack_configs:
+          - channel: "#desc-alerts"
+            send_resolved: true
+            title: '{{ if eq .Status "firing" }}FIRING{{ else }}RESOLVED{{ end }}: {{ .CommonLabels.alertname }}'
+            text: |
+              *Namespace:* {{ .CommonLabels.namespace }}
+              *Summary:* {{ .CommonAnnotations.summary }}
+              *Description:* {{ .CommonAnnotations.description }}
+
+# ─── Node Exporter ───────────────────────────────────────────────────────────
+nodeExporter:
+  enabled: true
+
+# ─── Kube State Metrics ───────────────────────────────────────────────────────
+kubeStateMetrics:
+  enabled: true
+
+# ─── Metrics Server (required for HPA) ───────────────────────────────────────
+# Install separately: helm install metrics-server metrics-server/metrics-server -n kube-system

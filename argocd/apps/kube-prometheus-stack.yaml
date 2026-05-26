@@ -1,0 +1,57 @@
+# ArgoCD Application — kube-prometheus-stack (monitoring)
+# Deploys Prometheus, Grafana, and Alertmanager via the upstream Helm chart.
+# Values are sourced from monitoring/prometheus/kube-prometheus-stack-values.yaml in Git.
+#
+# Note: CRDs for kube-prometheus-stack are large — use ServerSideApply=true
+# to avoid "metadata.annotations too long" errors.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  labels:
+    project: desc
+    tier: monitoring
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: desc
+
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "58.7.2"
+    helm:
+      valueFiles: []
+      # Inline values pointing back to our Git repo is not possible in a
+      # single-source Application. Use the MultiSource feature (ArgoCD 2.6+):
+      releaseName: kube-prometheus-stack
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - Replace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/failurePolicy
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/failurePolicy

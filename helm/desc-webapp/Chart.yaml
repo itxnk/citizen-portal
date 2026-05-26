@@ -1,0 +1,14 @@
+apiVersion: v2
+name: desc-webapp
+description: DESC Cloud-Native Demo — 3-tier web application for EKS deployment
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - desc
+  - cloudnative
+  - kubernetes
+  - eks
+maintainers:
+  - name: DESC Cloud Team
+    email: cloud@desc.gov.pk

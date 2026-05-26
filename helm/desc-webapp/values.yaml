@@ -1,0 +1,125 @@
+global:
+  namespace: desc-app
+  imageRegistry: ""   # set to: <account>.dkr.ecr.<region>.amazonaws.com
+
+# ─── Frontend ─────────────────────────────────────────────────────────────────
+frontend:
+  image:
+    repository: desc-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 5000
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+  env:
+    GATEWAY_URL: "http://desc-webapp-gateway:8000"
+
+# ─── API Gateway ──────────────────────────────────────────────────────────────
+gateway:
+  image:
+    repository: desc-gateway
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 8000
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 50
+  env:
+    USER_SERVICE_URL:         "http://desc-webapp-user-svc:8001"
+    RECORDS_SERVICE_URL:      "http://desc-webapp-records-svc:8002"
+    NOTIFICATION_SERVICE_URL: "http://desc-webapp-notification-svc:8003"
+
+# ─── User Service ─────────────────────────────────────────────────────────────
+userService:
+  image:
+    repository: desc-user-service
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 8001
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 50
+
+# ─── Records Service ──────────────────────────────────────────────────────────
+recordsService:
+  image:
+    repository: desc-records-service
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 8002
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits:   { cpu: 1000m, memory: 512Mi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 50  # primary HPA demo target
+
+# ─── Notification Service ─────────────────────────────────────────────────────
+notificationService:
+  image:
+    repository: desc-notification-service
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 8003
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+
+# ─── Ingress ──────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+  host: "desc-demo.your-domain.com"
+
+# ─── ServiceAccount / IRSA ────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  annotations: {}   # eks.amazonaws.com/role-arn: arn:aws:iam::...
+
+# ─── Prometheus ServiceMonitor ────────────────────────────────────────────────
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 30s
+  path: /metrics
+
+# ─── Grafana Dashboard ConfigMap ──────────────────────────────────────────────
+# The kube-prometheus-stack Grafana sidecar watches for ConfigMaps in the
+# release namespace that carry the label grafana_dashboard: "1" and auto-imports
+# them.  Set enabled: true when kube-prometheus-stack is deployed.
+grafanaDashboard:
+  enabled: true

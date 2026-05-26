@@ -1,0 +1,180 @@
+# Helm values for ArgoCD
+# Chart: argo-cd v6.7.18 (https://argoproj.github.io/argo-helm)
+# Installed by Terraform via helm_release.argocd in terraform/argocd.tf
+#
+# After Terraform applies, retrieve the admin password:
+#   kubectl get secret argocd-initial-admin-secret -n argocd \
+#     -o jsonpath='{.data.password}' | base64 -d
+
+global:
+  domain: argocd.desc-demo.com   # overridden by Terraform set block
+
+# ─── Server ───────────────────────────────────────────────────────────────────
+server:
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  # Expose ArgoCD UI via AWS ALB Ingress
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/backend-protocol: HTTPS
+      alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    hosts:
+      - argocd.desc-demo.com
+    tls:
+      - hosts:
+          - argocd.desc-demo.com
+
+  # Disable TLS at pod level — ALB handles SSL termination
+  extraArgs:
+    - --insecure
+
+  config:
+    # Allow applications to be managed from any Git repository
+    repositories: |
+      - url: https://github.com/your-org/desc-cloudnative-demo
+      - url: https://prometheus-community.github.io/helm-charts
+        type: helm
+        name: prometheus-community
+      - url: https://argoproj.github.io/argo-helm
+        type: helm
+        name: argo
+
+  rbacConfig:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:org-admin, applications, *, */*, allow
+      p, role:org-admin, clusters, get, *, allow
+      p, role:org-admin, repositories, *, *, allow
+      g, desc-admins, role:org-admin
+
+# ─── Application Controller ───────────────────────────────────────────────────
+controller:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+# ─── Repo Server ──────────────────────────────────────────────────────────────
+repoServer:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# ─── ApplicationSet Controller ────────────────────────────────────────────────
+applicationSet:
+  enabled: true
+  replicas: 1
+
+# ─── Redis (ArgoCD internal cache) ───────────────────────────────────────────
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ─── DEX (SSO) ────────────────────────────────────────────────────────────────
+dex:
+  enabled: false   # Enable and configure for LDAP/OIDC SSO in production
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+notifications:
+  enabled: true
+  argocdUrl: https://argocd.desc-demo.com
+
+  cm:
+    create: true
+
+  secret:
+    create: true
+
+  notifiers:
+    service.slack: |
+      token: $slack-token
+
+  subscriptions:
+    - recipients:
+        - slack:desc-deployments
+      triggers:
+        - on-deployed
+        - on-health-degraded
+        - on-sync-failed
+
+  triggers:
+    trigger.on-deployed: |
+      - description: Application is synced and healthy
+        send:
+          - app-deployed
+        when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+    trigger.on-health-degraded: |
+      - description: Application has degraded
+        send:
+          - app-health-degraded
+        when: app.status.health.status == 'Degraded'
+    trigger.on-sync-failed: |
+      - description: Application sync failed
+        send:
+          - app-sync-failed
+        when: app.status.operationState.phase in ['Error', 'Failed']
+
+  templates:
+    template.app-deployed: |
+      slack:
+        attachments: |
+          [{
+            "title": "✅ {{ .app.metadata.name }} deployed",
+            "color": "#18be52",
+            "fields": [{
+              "title": "Revision",
+              "value": "{{.app.status.sync.revision}}",
+              "short": true
+            }]
+          }]
+    template.app-health-degraded: |
+      slack:
+        attachments: |
+          [{
+            "title": "⚠️ {{ .app.metadata.name }} health degraded",
+            "color": "#f4c030",
+            "fields": [{
+              "title": "Health",
+              "value": "{{.app.status.health.message}}",
+              "short": false
+            }]
+          }]
+    template.app-sync-failed: |
+      slack:
+        attachments: |
+          [{
+            "title": "❌ {{ .app.metadata.name }} sync failed",
+            "color": "#E96D76",
+            "fields": [{
+              "title": "Error",
+              "value": "{{.app.status.operationState.message}}",
+              "short": false
+            }]
+          }]

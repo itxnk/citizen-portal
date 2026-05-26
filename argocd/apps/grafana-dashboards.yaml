@@ -1,0 +1,35 @@
+# ArgoCD Application — grafana-dashboards
+# Deploys the USE metrics dashboard ConfigMap from Git into the monitoring
+# namespace so Grafana auto-loads it via the sidecar.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana-dashboards
+  namespace: argocd
+  labels:
+    project: desc
+    tier: monitoring
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: desc
+
+  source:
+    repoURL: https://github.com/your-org/desc-cloudnative-demo
+    targetRevision: main
+    path: monitoring/grafana
+    directory:
+      recurse: true
+      include: "dashboards/*.json"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

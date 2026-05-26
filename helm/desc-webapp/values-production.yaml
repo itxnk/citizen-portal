@@ -1,0 +1,32 @@
+# Production overrides — merge with values.yaml via: helm install -f values.yaml -f values-production.yaml
+
+frontend:
+  replicas: 3
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  hpa:
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 55
+
+backend:
+  replicas: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+  hpa:
+    minReplicas: 3
+    maxReplicas: 30
+    targetCPUUtilizationPercentage: 45
+
+ingress:
+  host: "portal.desc.gov.pk"

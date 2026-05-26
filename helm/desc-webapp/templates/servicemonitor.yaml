@@ -1,0 +1,28 @@
+{{- if .Values.serviceMonitor.enabled }}
+{{- $root := . }}
+{{- $services := list "gateway" "user-svc" "records-svc" "notification-svc" "frontend" }}
+{{- range $services }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "desc-webapp.fullname" $root }}-{{ . }}
+  namespace: {{ $root.Values.serviceMonitor.namespace }}
+  labels:
+    {{- include "desc-webapp.labels" $root | nindent 4 }}
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "desc-webapp.name" $root }}-{{ . }}
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+  namespaceSelector:
+    matchNames:
+      - {{ $root.Values.global.namespace }}
+  endpoints:
+    - port: http
+      path: {{ $root.Values.serviceMonitor.path }}
+      interval: {{ $root.Values.serviceMonitor.interval }}
+      scrapeTimeout: 10s
+{{- end }}
+{{- end }}

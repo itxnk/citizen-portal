@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: docker-compose
+
+scrape_configs:
+  - job_name: gateway
+    static_configs:
+      - targets: ["gateway:8000"]
+        labels:
+          service: gateway
+
+  - job_name: user-svc
+    static_configs:
+      - targets: ["user-svc:8001"]
+        labels:
+          service: user-svc
+
+  - job_name: records-svc
+    static_configs:
+      - targets: ["records-svc:8002"]
+        labels:
+          service: records-svc
+
+  - job_name: notification-svc
+    static_configs:
+      - targets: ["notification-svc:8003"]
+        labels:
+          service: notification-svc
+
+  - job_name: frontend
+    static_configs:
+      - targets: ["frontend:5000"]
+        labels:
+          service: frontend

@@ -1,0 +1,124 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: desc-app-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: desc.utilization
+      interval: 30s
+      rules:
+        - alert: HighCPUUtilization
+          expr: |
+            (
+              rate(container_cpu_usage_seconds_total{namespace="desc-app", container!=""}[5m])
+              /
+              on(namespace, pod, container)
+              kube_pod_container_resource_limits{resource="cpu", namespace="desc-app"}
+            ) > 0.80
+          for: 5m
+          labels:
+            severity: warning
+            namespace: desc-app
+          annotations:
+            summary: "High CPU utilization in desc-app"
+            description: "Pod {{ $labels.pod }} container {{ $labels.container }} CPU is at {{ $value | humanizePercentage }}"
+
+        - alert: HighMemoryUtilization
+          expr: |
+            (
+              container_memory_working_set_bytes{namespace="desc-app", container!=""}
+              /
+              on(namespace, pod, container)
+              kube_pod_container_resource_limits{resource="memory", namespace="desc-app"}
+            ) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            namespace: desc-app
+          annotations:
+            summary: "High memory utilization in desc-app"
+            description: "Pod {{ $labels.pod }} memory is at {{ $value | humanizePercentage }}"
+
+    - name: desc.saturation
+      interval: 30s
+      rules:
+        - alert: HPAAtMaxReplicas
+          expr: |
+            kube_horizontalpodautoscaler_status_current_replicas{namespace="desc-app"}
+            ==
+            kube_horizontalpodautoscaler_spec_max_replicas{namespace="desc-app"}
+          for: 10m
+          labels:
+            severity: critical
+            namespace: desc-app
+          annotations:
+            summary: "HPA {{ $labels.horizontalpodautoscaler }} has reached maximum replicas"
+            description: "The HPA cannot scale further. Consider increasing maxReplicas or adding more nodes."
+
+        - alert: HighCPUThrottling
+          expr: |
+            rate(container_cpu_cfs_throttled_periods_total{namespace="desc-app"}[5m])
+            /
+            rate(container_cpu_cfs_periods_total{namespace="desc-app"}[5m]) > 0.25
+          for: 5m
+          labels:
+            severity: warning
+            namespace: desc-app
+          annotations:
+            summary: "CPU throttling detected for {{ $labels.pod }}"
+            description: "{{ $value | humanizePercentage }} of CPU periods are throttled. Increase CPU limits or trigger scale-out."
+
+        - alert: PendingPods
+          expr: |
+            kube_pod_status_phase{namespace="desc-app", phase="Pending"} > 0
+          for: 5m
+          labels:
+            severity: warning
+            namespace: desc-app
+          annotations:
+            summary: "Pods are pending in desc-app"
+            description: "{{ $value }} pod(s) are in Pending state. Check node capacity and Cluster Autoscaler."
+
+    - name: desc.errors
+      interval: 30s
+      rules:
+        - alert: HighHTTPErrorRate
+          expr: |
+            (
+              rate(http_requests_total{status=~"5..", namespace="desc-app"}[5m])
+              /
+              rate(http_requests_total{namespace="desc-app"}[5m])
+            ) > 0.01
+          for: 5m
+          labels:
+            severity: critical
+            namespace: desc-app
+          annotations:
+            summary: "High HTTP 5xx error rate in desc-app"
+            description: "Error rate is {{ $value | humanizePercentage }}. Investigate pod logs."
+
+        - alert: PodRestartLoop
+          expr: |
+            rate(kube_pod_container_status_restarts_total{namespace="desc-app"}[15m]) * 60 * 15 > 3
+          for: 5m
+          labels:
+            severity: warning
+            namespace: desc-app
+          annotations:
+            summary: "Pod {{ $labels.pod }} is restarting frequently"
+            description: "Container {{ $labels.container }} has restarted {{ $value | humanize }} times in 15 minutes."
+
+        - alert: HighP95Latency
+          expr: |
+            histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace="desc-app"}[5m])) > 2
+          for: 5m
+          labels:
+            severity: warning
+            namespace: desc-app
+          annotations:
+            summary: "P95 latency is above 2s in desc-app"
+            description: "P95 response time is {{ $value | humanizeDuration }}. Check for resource contention."

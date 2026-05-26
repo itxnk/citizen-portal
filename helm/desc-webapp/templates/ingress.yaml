@@ -1,0 +1,38 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "desc-webapp.fullname" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "desc-webapp.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # All /api/* goes to the Gateway — it routes internally to microservices
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "desc-webapp.fullname" . }}-gateway
+                port: { name: http }
+          # Gateway health/metrics
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "desc-webapp.fullname" . }}-gateway
+                port: { name: http }
+          # Everything else → Frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "desc-webapp.fullname" . }}-frontend
+                port: { name: http }
+{{- end }}

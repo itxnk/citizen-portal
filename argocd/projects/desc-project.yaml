@@ -1,0 +1,62 @@
+# ArgoCD AppProject — desc
+# Scopes which Git repos, destination clusters, and namespaces
+# this project's applications are allowed to deploy to.
+#
+# Apply manually if not using Terraform:
+#   kubectl apply -f argocd/projects/desc-project.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: desc
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "DESC Digital Innovation Center — Cloud-Native Portal Project"
+
+  sourceRepos:
+    - "*"
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: desc-app
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+
+  # Allow creating cluster-scoped resources (Namespace, ClusterRole)
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRole
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRoleBinding
+    - group: "apiextensions.k8s.io"
+      kind: CustomResourceDefinition
+
+  # Allow all namespace-scoped resources within permitted namespaces
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  # Project-level RBAC
+  roles:
+    - name: desc-admin
+      description: Admin access to all desc project apps
+      policies:
+        - p, proj:desc:desc-admin, applications, *, desc/*, allow
+      groups:
+        - desc-platform-team
+
+    - name: desc-readonly
+      description: Read-only access for auditors
+      policies:
+        - p, proj:desc:desc-readonly, applications, get, desc/*, allow
+      groups:
+        - desc-auditors
+
+  # Prevent applications being orphaned if the project is deleted
+  orphanedResources:
+    warn: true

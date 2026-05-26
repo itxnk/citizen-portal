@@ -1,0 +1,34 @@
+{{- if .Values.recordsService.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "desc-webapp.fullname" . }}-records-svc
+  namespace: {{ .Values.global.namespace }}
+  labels: {{- include "desc-webapp.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "desc-webapp.fullname" . }}-records-svc
+  minReplicas: {{ .Values.recordsService.hpa.minReplicas }}
+  maxReplicas: {{ .Values.recordsService.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.recordsService.hpa.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleUp:
+      # Fast scale-up: Records service is the HPA demo target
+      stabilizationWindowSeconds: 20
+      policies:
+        - { type: Pods, value: 4, periodSeconds: 30 }
+        - { type: Percent, value: 100, periodSeconds: 30 }
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 60 }
+{{- end }}

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "desc-webapp.fullname" . }}-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "desc-webapp.labels" . | nindent 4 }}
+data:
+  # Frontend → Gateway
+  GATEWAY_URL: {{ .Values.frontend.env.GATEWAY_URL | quote }}
+  # Gateway → Microservices (Kubernetes DNS)
+  USER_SERVICE_URL:         {{ .Values.gateway.env.USER_SERVICE_URL | quote }}
+  RECORDS_SERVICE_URL:      {{ .Values.gateway.env.RECORDS_SERVICE_URL | quote }}
+  NOTIFICATION_SERVICE_URL: {{ .Values.gateway.env.NOTIFICATION_SERVICE_URL | quote }}
+  APP_VERSION:  {{ .Chart.AppVersion | quote }}
+  TENDER_REF:   "DESC-MRD-2026-CNC-088"

@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "desc-webapp.fullname" . }}-records-svc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "desc-webapp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "desc-webapp.name" . }}-records-svc
+    app.kubernetes.io/component: records-service
+spec:
+  replicas: {{ .Values.recordsService.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "desc-webapp.name" . }}-records-svc
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "desc-webapp.name" . }}-records-svc
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: {{ .Values.recordsService.port | quote }}
+    spec:
+      serviceAccountName: {{ include "desc-webapp.fullname" . }}
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000 }
+      containers:
+        - name: records-svc
+          image: "{{ .Values.global.imageRegistry }}/{{ .Values.recordsService.image.repository }}:{{ .Values.recordsService.image.tag }}"
+          imagePullPolicy: {{ .Values.recordsService.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.recordsService.port }}
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: NODE_NAME
+              valueFrom: { fieldRef: { fieldPath: spec.nodeName } }
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "desc-webapp.fullname" . }}-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "desc-webapp.fullname" . }}-secrets
+                  key: REDIS_URL
+          resources: {{- toYaml .Values.recordsService.resources | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+      terminationGracePeriodSeconds: 30

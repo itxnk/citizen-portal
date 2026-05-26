@@ -1,0 +1,76 @@
+# ArgoCD Application — desc-webapp
+# This is the GitOps declaration that tells ArgoCD to sync our Helm chart
+# from Git into the desc-app namespace on EKS.
+#
+# After Terraform deploys ArgoCD, this Application is already registered
+# via kubernetes_manifest in terraform/argocd.tf.
+# This file is the plain-YAML equivalent for manual apply or documentation:
+#   kubectl apply -f argocd/apps/desc-webapp.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: desc-webapp
+  namespace: argocd
+  labels:
+    project: desc
+    tier: application
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-deployed.slack: desc-deployments
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: desc-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: desc-deployments
+spec:
+  project: desc
+
+  source:
+    repoURL: https://github.com/your-org/desc-cloudnative-demo
+    targetRevision: main
+    path: helm/desc-webapp
+    helm:
+      valueFiles:
+        - values.yaml
+      # Override image tag injected by GitHub Actions CI pipeline:
+      # parameters:
+      #   - name: backend.image.tag
+      #     value: "abc1234"
+      #   - name: frontend.image.tag
+      #     value: "abc1234"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: desc-app
+
+  syncPolicy:
+    automated:
+      prune: true      # delete resources removed from Git
+      selfHeal: true   # revert manual kubectl changes — drift correction
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore differences that are managed dynamically (HPA current replicas)
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /spec/minReplicas
+
+  # Health check overrides
+  info:
+    - name: "Tender Reference"
+      value: "DESC-MRD-2026-CNC-088"
+    - name: "Environment"
+      value: "demo"

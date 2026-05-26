@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "desc-webapp.fullname" . }}-notification-svc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "desc-webapp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "desc-webapp.name" . }}-notification-svc
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "desc-webapp.name" . }}-notification-svc
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.notificationService.port }}
+      targetPort: http
