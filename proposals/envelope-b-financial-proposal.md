@@ -29,11 +29,11 @@
 
 | Category | USD | PKR (est.) |
 |----------|-----|-----------|
-| One-time setup & implementation | $17,000 | PKR 4,760,000 |
-| AWS cloud infrastructure (Year 1) | $5,232 | PKR 1,464,960 |
+| One-time setup & implementation | $19,000 | PKR 5,320,000 |
+| AWS cloud infrastructure (Year 1) | $5,712 | PKR 1,599,360 |
 | 1-year managed service retainer | $7,200 | PKR 2,016,000 |
-| **Total Year 1 Investment** | **$29,432** | **PKR 8,240,960** |
-| Year 2+ annual (infrastructure + managed service only) | **$12,432** | **PKR 3,480,960** |
+| **Total Year 1 Investment** | **$31,912** | **PKR 8,935,360** |
+| Year 2+ annual (infrastructure + managed service only) | **$12,912** | **PKR 3,615,360** |
 
 > PKR equivalent is indicative at 280 PKR/USD exchange rate and will be adjusted to the SBP rate on invoice date.
 
@@ -59,11 +59,12 @@ These are professional services fees for designing, building, and deploying the 
 | Deliverable | Description | Fee (USD) |
 |-------------|-------------|-----------|
 | Microservices Decomposition | Decompose monolith into 4 domain services (Gateway, User, Records, Notification) + Frontend — each with FastAPI/Flask, asyncpg, Redis client, Prometheus metrics | $3,000 |
-| Docker Multi-Stage Builds | 5 Dockerfiles (multi-stage, non-root, read-only filesystem), Docker Compose for local dev (7-service stack) | $500 |
+| Citizen Portal & Admin Panel | Flask frontend with session-based auth: public landing, login, register; citizen portal (records, notifications, profile); role-gated admin panel (user management, health dashboard, notification publishing, stress trigger, architecture view) | $1,000 |
+| Docker Multi-Stage Builds | 5 Dockerfiles (multi-stage, non-root, read-only filesystem), Docker Compose for local dev (9-service stack incl. Prometheus + Grafana) | $500 |
 | Helm Chart Development | Helm chart with 21 templates: 5 Deployments, 5 Services, 5 HPAs, ConfigMap, Ingress, ServiceMonitor (range loop), ServiceAccount | $1,500 |
 | ArgoCD GitOps Setup | AppProject, ArgoCD Applications (desc-webapp, kube-prometheus-stack), self-heal + prune config, ignoreDifferences for HPA drift; Helm `grafanaDashboard.enabled: true` auto-provisions dashboard via sidecar ConfigMap | $1,000 |
 
-**Application Subtotal: $6,000**
+**Application Subtotal: $7,000**
 
 ### 2.3 CI/CD Pipeline & Testing
 
@@ -102,11 +103,11 @@ These are professional services fees for designing, building, and deploying the 
 | Category | USD |
 |----------|-----|
 | Architecture & Infrastructure | $8,500 |
-| Application Containerization & Microservices | $6,000 |
+| Application Containerization & Microservices | $7,000 |
 | CI/CD Pipeline & Testing | $1,500 |
 | Observability & Security | $1,500 |
 | Documentation & Knowledge Transfer | $500 |
-| **Total One-Time Setup Fee** | **$17,000** |
+| **Total One-Time Setup Fee** | **$19,000** |
 
 ---
 
@@ -225,10 +226,10 @@ The managed service covers ongoing operations for the 12-month contract duration
 
 | Item | Amount (USD) | Amount (PKR) |
 |------|-------------|-------------|
-| One-time setup & implementation | $17,000 | PKR 4,760,000 |
+| One-time setup & implementation | $19,000 | PKR 5,320,000 |
 | AWS cloud infrastructure (12 months × $476) | $5,712 | PKR 1,599,360 |
 | Managed service retainer (12 months × $600) | $7,200 | PKR 2,016,000 |
-| **Year 1 Total** | **$29,912** | **PKR 8,375,360** |
+| **Year 1 Total** | **$31,912** | **PKR 8,935,360** |
 
 ### Year 2+ Recurring Costs
 
@@ -283,11 +284,11 @@ AWS Compute Savings Plans give up to 66% discount on EC2 with commitment flexibi
 
 | Milestone | % | Amount (USD) | Due |
 |-----------|---|-------------|-----|
-| Contract signing + project kickoff | 25% | $4,250 | Week 0 |
-| Infrastructure provisioned (EKS running) | 25% | $4,250 | Week 2 |
-| Application deployed on EKS (all services healthy) | 25% | $4,250 | Week 5 |
-| Live demonstration accepted by evaluation board | 25% | $4,250 | Week 8 |
-| **Setup Total** | **100%** | **$17,000** | |
+| Contract signing + project kickoff | 25% | $4,750 | Week 0 |
+| Infrastructure provisioned (EKS running) | 25% | $4,750 | Week 2 |
+| Application deployed on EKS (all services healthy) | 25% | $4,750 | Week 5 |
+| Live demonstration accepted by evaluation board | 25% | $4,750 | Week 8 |
+| **Setup Total** | **100%** | **$19,000** | |
 | Managed Service Retainer | — | $600/month | Monthly from Month 1 |
 
 AWS costs are billed directly by AWS to DESC's AWS account — passed through at cost with no markup.

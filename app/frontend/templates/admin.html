@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel — DESC{% endblock %}
+
+{% block head %}
+<style>
+  .admin-layout { display: flex; gap: 1.25rem; align-items: flex-start; }
+
+  /* Sidebar */
+  .sidebar { width: 200px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; position: sticky; top: 1rem; }
+  .sidebar-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 0.4rem 0.5rem 0.75rem; }
+  .sidebar a { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.86rem; color: var(--muted); text-decoration: none; transition: all .15s; }
+  .sidebar a:hover { background: var(--border); color: var(--text); }
+  .sidebar a.active { background: rgba(56,189,248,.12); color: var(--accent); font-weight: 600; }
+
+  /* Content */
+  .admin-content { flex: 1; min-width: 0; }
+  .admin-section { display: none; }
+  .admin-section.active { display: block; }
+
+  /* Page header */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .page-header h2 { font-size: 1.15rem; font-weight: 700; }
+
+  /* Health cards */
+  .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+  .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; display: flex; align-items: center; gap: 0.75rem; }
+  .health-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .health-dot.healthy { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .health-dot.degraded { background: var(--amber); }
+  .health-dot.unreachable { background: var(--red); }
+  .health-svc { font-size: 0.82rem; font-weight: 600; }
+  .health-url { font-size: 0.72rem; color: var(--muted); }
+
+  /* Info row */
+  .info-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+  .info-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.9rem; }
+  .info-chip .ic-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 0.2rem; }
+  .info-chip .ic-value { font-size: 0.85rem; font-weight: 600; font-family: monospace; color: var(--accent); word-break: break-all; }
+
+  /* Stress */
+  .stress-result { margin-top: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; font-family: monospace; font-size: 0.82rem; display: none; }
+  pre.k6 { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-size: 0.78rem; color: var(--muted); overflow-x: auto; white-space: pre-wrap; margin-top: 0.75rem; }
+
+  /* Arch banner */
+  .arch-banner { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; font-family: monospace; font-size: 0.8rem; color: var(--muted); line-height: 1.8; }
+  .arch-banner .hl { color: var(--accent); }
+
+  /* Source tag */
+  .src-tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: rgba(167,139,250,.15); color: var(--purple); margin-left: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-title">Admin Panel</div>
+    <a href="#" class="active" onclick="showSection('dashboard', this)">📊 Dashboard</a>
+    <a href="#" onclick="showSection('users', this)">👥 Users</a>
+    <a href="#" onclick="showSection('records', this)">📋 Records</a>
+    <a href="#" onclick="showSection('notifications', this)">🔔 Notifications</a>
+    <a href="#" onclick="showSection('system', this)">⚙️ System</a>
+  </nav>
+
+  <!-- Content -->
+  <div class="admin-content">
+
+    <!-- Dashboard -->
+    <div id="sec-dashboard" class="admin-section active">
+      <div class="page-header"><h2>Dashboard</h2></div>
+
+      <div class="health-grid">
+        {% if services %}
+          {% for s in services %}
+          <div class="health-card">
+            <div class="health-dot {{ s.status if s.status in ('healthy','degraded','unreachable') else 'unreachable' }}"></div>
+            <div>
+              <div class="health-svc">{{ s.service }}</div>
+              <div class="health-url">{{ s.status }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="health-card"><div class="health-dot unreachable"></div><div><div class="health-svc">Gateway</div><div class="health-url">unreachable</div></div></div>
+        {% endif %}
+      </div>
+
+      <div class="info-row">
+        <div class="info-chip"><div class="ic-label">Frontend Pod</div><div class="ic-value">{{ pod_name }}</div></div>
+        <div class="info-chip"><div class="ic-label">Node</div><div class="ic-value">{{ node_name }}</div></div>
+        <div class="info-chip"><div class="ic-label">Gateway URL</div><div class="ic-value">{{ gateway_url }}</div></div>
+        <div class="info-chip"><div class="ic-label">Logged In As</div><div class="ic-value">{{ user_name }}</div></div>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Quick Stats</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;text-align:center;">
+          <div><div style="font-size:2rem;font-weight:800;color:var(--accent);">{{ users | length }}</div><div style="font-size:.8rem;color:var(--muted);">Registered Users</div></div>
+          <div><div style="font-size:2rem;font-weight:800;color:var(--green);">{{ records | length }}</div><div style="font-size:.8rem;color:var(--muted);">Service Records</div></div>
+          <div><div style="font-size:2rem;font-weight:800;color:var(--amber);">{{ notifications | length }}</div><div style="font-size:.8rem;color:var(--muted);">Notifications</div></div>
+          <div><div style="font-size:2rem;font-weight:800;color:var(--green);">{{ services | selectattr('status','eq','healthy') | list | length }}</div><div style="font-size:.8rem;color:var(--muted);">Healthy Services</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users -->
+    <div id="sec-users" class="admin-section">
+      <div class="page-header"><h2>User Management</h2></div>
+      <div class="card" style="margin-bottom:1.25rem;">
+        <p class="card-title">Add User</p>
+        <div class="form-row">
+          <div class="field"><label>Full Name</label><input type="text" id="usr-name" placeholder="Full name"></div>
+          <div class="field"><label>Email</label><input type="email" id="usr-email" placeholder="email@desc.gov.pk"></div>
+          <div class="field"><label>Role</label>
+            <select id="usr-role">
+              <option value="citizen">Citizen</option>
+              <option value="officer">Officer</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div><label>&nbsp;</label><button class="btn btn-primary" onclick="createUser()">Add User</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <p class="card-title">Registered Users</p>
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Registered</th></tr></thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td style="color:var(--muted);font-size:.8rem;">{{ u.id }}</td>
+              <td style="font-weight:500;">{{ u.name }}</td>
+              <td style="color:var(--muted);">{{ u.email }}</td>
+              <td><span class="badge badge-{{ u.role }}">{{ u.role | capitalize }}</span></td>
+              <td style="color:var(--muted);font-size:.8rem;">{{ u.created_at[:10] if u.created_at else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="5">No users found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Records -->
+    <div id="sec-records" class="admin-section">
+      <div class="page-header">
+        <h2>All Records</h2>
+        <span>Data source: <span class="src-tag">{{ records_source }}</span></span>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Description</th><th>Status</th><th>Submitted</th></tr></thead>
+          <tbody>
+            {% for r in records %}
+            <tr>
+              <td style="color:var(--muted);font-size:.8rem;">{{ r.id }}</td>
+              <td style="font-weight:500;">{{ r.title }}</td>
+              <td style="color:var(--muted);">{{ r.description or '—' }}</td>
+              <td><span class="badge badge-{{ r.status }}">{{ r.status | capitalize }}</span></td>
+              <td style="color:var(--muted);font-size:.8rem;">{{ r.created_at[:10] if r.created_at else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="5">No records found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="sec-notifications" class="admin-section">
+      <div class="page-header"><h2>Notifications</h2></div>
+      <div class="card" style="margin-bottom:1.25rem;">
+        <p class="card-title">Publish Notification</p>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;">Each published notification is broadcast to the Redis <code style="color:var(--accent);">desc:notifications</code> pub/sub channel and stored in the database.</p>
+        <div class="form-row">
+          <div class="field"><label>Title</label><input type="text" id="notif-title" placeholder="Notification title"></div>
+          <div class="field"><label>Message</label><input type="text" id="notif-msg" placeholder="Notification message"></div>
+          <div class="field"><label>Type</label>
+            <select id="notif-type">
+              <option value="info">Info</option>
+              <option value="success">Success</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+          <div><label>&nbsp;</label><button class="btn btn-primary" onclick="publishNotif()">Publish</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <p class="card-title">All Notifications</p>
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Message</th><th>Type</th><th>Published</th></tr></thead>
+          <tbody>
+            {% for n in notifications %}
+            <tr>
+              <td style="color:var(--muted);font-size:.8rem;">{{ n.id }}</td>
+              <td style="font-weight:500;">{{ n.title }}</td>
+              <td style="color:var(--muted);">{{ n.message }}</td>
+              <td><span class="badge badge-{{ n.type }}">{{ n.type | capitalize }}</span></td>
+              <td style="color:var(--muted);font-size:.8rem;">{{ n.created_at[:10] if n.created_at else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="5">No notifications yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- System -->
+    <div id="sec-system" class="admin-section">
+      <div class="page-header"><h2>System</h2></div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <p class="card-title">Architecture</p>
+        <div class="arch-banner">
+<span class="hl">Browser</span> → <span class="hl">Frontend :5000</span> → <span class="hl">Gateway :8000</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="hl">User Service :8001</span>         → PostgreSQL (users)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="hl">Records Service :8002</span>      → PostgreSQL + Redis cache<br>
+&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="hl">Notification Svc :8003</span>    → PostgreSQL + Redis pub/sub<br>
+<br>
+Each service: Deployment · HPA · ClusterIP · ServiceMonitor → Prometheus → Grafana
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <p class="card-title">HPA Auto-Scaling Demo (CPU Stress)</p>
+        <p style="font-size:.83rem;color:var(--muted);margin-bottom:1rem;">Trigger CPU-intensive prime calculation on the Records Service to watch the HPA scale from 2 → 15 replicas.</p>
+        <div class="form-row" style="align-items:flex-end;">
+          <div class="field" style="max-width:200px;"><label>Prime upper limit</label><input type="text" id="stress-n" value="10000"></div>
+          <button class="btn btn-danger" onclick="triggerStress()">Trigger CPU Stress</button>
+          <button class="btn btn-ghost" style="border:1px solid var(--amber);color:var(--amber);" onclick="triggerBurst()">Burst (×10)</button>
+        </div>
+        <div class="stress-result" id="stress-out"></div>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Load Test Commands</p>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem;">Watch HPA in a separate terminal:</p>
+        <pre class="k6">watch -n2 "kubectl get hpa,pods -n desc-app --no-headers | column -t"</pre>
+        <p style="font-size:.8rem;color:var(--muted);margin:.75rem 0;">Run k6 load test:</p>
+        <pre class="k6"># Full ramp (0 → 200 VUs over 13 min)
+export BASE_URL=http://$(kubectl get ingress -n desc-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+k6 run --env BASE_URL=$BASE_URL load-testing/k6/load-test.js
+
+# Demo spike (0 → 300 VUs in 30s)
+k6 run --env BASE_URL=$BASE_URL load-testing/k6/stress-test.js</pre>
+      </div>
+    </div>
+
+  </div><!-- /admin-content -->
+</div><!-- /admin-layout -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showSection(name, link) {
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  link.classList.add('active');
+  return false;
+}
+
+async function apiPost(path, body) {
+  const r = await fetch(path, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  });
+  return r;
+}
+
+async function createUser() {
+  const name  = document.getElementById('usr-name').value.trim();
+  const email = document.getElementById('usr-email').value.trim();
+  const role  = document.getElementById('usr-role').value;
+  if (!name || !email) { alert('Name and email are required.'); return; }
+  const r = await apiPost('/api/users', { name, email, role });
+  if (r.ok) { location.reload(); }
+  else { const d = await r.json(); alert(d.detail || 'Failed to add user.'); }
+}
+
+async function publishNotif() {
+  const title   = document.getElementById('notif-title').value.trim();
+  const message = document.getElementById('notif-msg').value.trim();
+  const type    = document.getElementById('notif-type').value;
+  if (!title || !message) { alert('Title and message are required.'); return; }
+  const r = await apiPost('/api/notifications', { title, message, type });
+  if (r.ok) { location.reload(); }
+  else { const d = await r.json(); alert(d.detail || 'Failed to publish.'); }
+}
+
+async function triggerStress() {
+  const n = document.getElementById('stress-n').value || 10000;
+  const out = document.getElementById('stress-out');
+  out.style.display = 'block'; out.textContent = 'Running… (this may take a few seconds)';
+  const t0 = Date.now();
+  const r = await fetch(`/api/stress?n=${n}`);
+  const d = await r.json();
+  out.textContent = JSON.stringify(d, null, 2) + `\n\nElapsed: ${((Date.now()-t0)/1000).toFixed(2)}s`;
+}
+
+async function triggerBurst() {
+  const n = document.getElementById('stress-n').value || 10000;
+  const out = document.getElementById('stress-out');
+  out.style.display = 'block'; out.textContent = 'Sending 10 concurrent requests…';
+  const results = await Promise.allSettled(
+    Array.from({length:10}, () => fetch(`/api/stress?n=${n}`))
+  );
+  const ok = results.filter(r => r.status === 'fulfilled').length;
+  out.textContent = `Burst complete: ${ok}/10 requests succeeded.\n\nCheck HPA:\nkubectl get hpa -n desc-app -w`;
+}
+</script>
+{% endblock %}

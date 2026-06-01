@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DESC Cloud-Native Platform — Stakeholder Presentation</title>
+<style>
+/* ── Reset & variables ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0f172a;
+  --bg2:     #0a1120;
+  --surface: #1e293b;
+  --surface2:#162032;
+  --border:  #334155;
+  --accent:  #38bdf8;
+  --accent2: #0ea5e9;
+  --accent3: #6366f1;
+  --green:   #22c55e;
+  --amber:   #f59e0b;
+  --red:     #ef4444;
+  --purple:  #a78bfa;
+  --pink:    #f472b6;
+  --text:    #e2e8f0;
+  --muted:   #94a3b8;
+  --slide-w: 1200px;
+  --slide-h: 675px;
+}
+
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', system-ui, sans-serif; color: var(--text); }
+
+/* ── Slide engine ────────────────────────────────────────────────────────── */
+.deck { width: 100vw; height: 100vh; position: relative; }
+.slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  opacity: 0; pointer-events: none;
+  overflow: hidden;
+  /* transitions handled entirely by JS — no default CSS transition here */
+}
+.slide.active {
+  opacity: 1; pointer-events: all;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+#progress-bar {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent3));
+  transition: width .3s ease; z-index: 100;
+}
+#slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem;
+  font-size: .75rem; color: var(--muted); z-index: 100;
+  font-variant-numeric: tabular-nums;
+}
+#nav-hint {
+  position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  font-size: .72rem; color: var(--border); z-index: 100;
+}
+
+/* ── Nav arrows ─────────────────────────────────────────────────────────── */
+.nav-btn {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  background: rgba(30,41,59,.7); border: 1px solid var(--border);
+  color: var(--muted); width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 100; font-size: 1.1rem;
+  transition: all .15s; backdrop-filter: blur(4px);
+}
+.nav-btn:hover { background: var(--surface); color: var(--text); }
+#nav-prev { left: .75rem; }
+#nav-next { right: .75rem; }
+
+/* ── Slide header strip ──────────────────────────────────────────────────── */
+.slide-header {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .6rem 2rem;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-size: .72rem; color: var(--muted);
+  flex-shrink: 0;
+}
+.slide-header .brand { color: var(--accent); font-weight: 700; margin-right: auto; }
+.slide-header .tag { background: var(--border); padding: .15rem .5rem; border-radius: 10px; }
+
+/* ── Slide body ──────────────────────────────────────────────────────────── */
+.slide-body {
+  flex: 1; padding: 2rem 2.5rem; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+.slide-title { font-size: 1.9rem; font-weight: 800; line-height: 1.15; margin-bottom: .5rem; }
+.slide-title .accent { color: var(--accent); }
+.slide-title .green  { color: var(--green); }
+.slide-title .purple { color: var(--purple); }
+.slide-sub { font-size: 1rem; color: var(--muted); margin-bottom: 1.5rem; }
+h3 { font-size: 1rem; font-weight: 700; margin-bottom: .6rem; }
+p  { font-size: .88rem; color: var(--muted); line-height: 1.6; }
+
+/* ── Layout helpers ──────────────────────────────────────────────────────── */
+.cols { display: flex; gap: 1.5rem; flex: 1; }
+.col  { flex: 1; display: flex; flex-direction: column; gap: .75rem; }
+.col-40 { flex: 0 0 40%; }
+.col-60 { flex: 0 0 60%; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: 1; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; flex: 1; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: .75rem; }
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.1rem 1.25rem;
+}
+.card.accent-border { border-color: var(--accent2); }
+.card.green-border  { border-color: var(--green); }
+.card.amber-border  { border-color: var(--amber); }
+.card.purple-border { border-color: var(--purple); }
+
+.card-icon { font-size: 1.6rem; margin-bottom: .5rem; }
+.card h3   { font-size: .9rem; }
+.card p    { font-size: .8rem; margin-top: .3rem; }
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block; padding: .2rem .65rem; border-radius: 20px;
+  font-size: .72rem; font-weight: 700;
+}
+.badge-blue   { background: rgba(56,189,248,.15); color: var(--accent); }
+.badge-green  { background: rgba(34,197,94,.15);  color: var(--green); }
+.badge-amber  { background: rgba(245,158,11,.15); color: var(--amber); }
+.badge-purple { background: rgba(99,102,241,.15); color: var(--purple); }
+.badge-pink   { background: rgba(244,114,182,.15);color: var(--pink); }
+.badge-red    { background: rgba(239,68,68,.15);  color: var(--red); }
+
+/* ── Architecture diagram ────────────────────────────────────────────────── */
+.arch-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: .75rem 1.1rem;
+  font-family: 'Consolas', 'Courier New', monospace; font-size: .78rem; line-height: 1.85;
+  color: var(--muted); white-space: pre; overflow-x: auto;
+}
+.arch-box .hl  { color: var(--accent);  font-weight: 700; }
+.arch-box .gl  { color: var(--green);   font-weight: 700; }
+.arch-box .pl  { color: var(--purple);  font-weight: 700; }
+.arch-box .al  { color: var(--amber);   font-weight: 700; }
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.tbl th { text-align: left; padding: .45rem .75rem; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+.tbl td { padding: .5rem .75rem; border-bottom: 1px solid rgba(51,65,85,.4); vertical-align: top; }
+.tbl td:first-child { font-weight: 600; color: var(--text); }
+.tbl td.why { color: var(--muted); font-size: .78rem; }
+.tbl tr:last-child td { border-bottom: none; }
+
+/* ── Stat cards ──────────────────────────────────────────────────────────── */
+.stat { text-align: center; }
+.stat .num { font-size: 2.2rem; font-weight: 900; }
+.stat .lbl { font-size: .75rem; color: var(--muted); margin-top: .15rem; }
+.stat.blue   .num { color: var(--accent); }
+.stat.green  .num { color: var(--green); }
+.stat.amber  .num { color: var(--amber); }
+.stat.purple .num { color: var(--purple); }
+
+/* ── Timeline ────────────────────────────────────────────────────────────── */
+.timeline { display: flex; gap: 0; flex: 1; }
+.tl-item { flex: 1; position: relative; padding: 0 .5rem; }
+.tl-item::before {
+  content: ''; position: absolute; top: 1.45rem; left: 0; right: 0;
+  height: 2px; background: var(--border);
+}
+.tl-item:first-child::before { left: 50%; }
+.tl-item:last-child::before  { right: 50%; }
+.tl-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent2); border: 2px solid var(--bg);
+  margin: 0 auto .75rem; position: relative; z-index: 1;
+}
+.tl-week { font-size: .65rem; color: var(--accent); font-weight: 700; text-align: center; margin-bottom: .3rem; }
+.tl-title { font-size: .72rem; font-weight: 600; text-align: center; line-height: 1.3; }
+.tl-desc  { font-size: .65rem; color: var(--muted); text-align: center; margin-top: .25rem; line-height: 1.3; }
+
+/* ── Checklist ───────────────────────────────────────────────────────────── */
+.checklist { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+.checklist li { display: flex; align-items: flex-start; gap: .6rem; font-size: .85rem; }
+.checklist li::before { content: '✓'; color: var(--green); font-weight: 900; flex-shrink: 0; margin-top: .05rem; }
+.checklist li.x::before { content: '✗'; color: var(--red); }
+.checklist li.warn::before { content: '⚠'; color: var(--amber); }
+
+/* ── Flow arrows ─────────────────────────────────────────────────────────── */
+.flow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.flow-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: .45rem .85rem; font-size: .78rem; font-weight: 600;
+}
+.flow-arrow { color: var(--accent); font-size: 1rem; }
+
+/* ── Title slide specific ────────────────────────────────────────────────── */
+.slide-title-hero {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; padding: 2rem;
+  background: radial-gradient(ellipse at 50% 40%, rgba(14,165,233,.08) 0%, transparent 65%);
+}
+.hero-logo { font-size: 3rem; margin-bottom: 1rem; }
+.hero-title { font-size: 2.8rem; font-weight: 900; line-height: 1.1; margin-bottom: 1rem; }
+.hero-title .accent { color: var(--accent); }
+.hero-sub { font-size: 1.1rem; color: var(--muted); max-width: 620px; line-height: 1.6; margin-bottom: 2rem; }
+.hero-meta { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+.hero-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: .4rem 1rem; font-size: .78rem; color: var(--muted); }
+
+/* ── Section divider slide ───────────────────────────────────────────────── */
+.section-hero {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center;
+}
+.section-num { font-size: 5rem; font-weight: 900; opacity: .07; line-height: 1; margin-bottom: -.5rem; }
+.section-title { font-size: 2.4rem; font-weight: 900; }
+.section-sub { font-size: 1rem; color: var(--muted); margin-top: .5rem; }
+
+/* ── Scrollable table container ──────────────────────────────────────────── */
+.tbl-wrap { overflow-y: auto; flex: 1; border-radius: 8px; border: 1px solid var(--border); }
+
+/* ── Two-tone bg ─────────────────────────────────────────────────────────── */
+.slide.section-slide { background: linear-gradient(135deg, #0f172a 60%, #0c1a33 100%); }
+
+/* ── Quote block ─────────────────────────────────────────────────────────── */
+.quote {
+  border-left: 3px solid var(--accent); padding: .75rem 1.25rem;
+  background: rgba(56,189,248,.05); border-radius: 0 8px 8px 0;
+  font-size: .88rem; color: var(--text); line-height: 1.6; font-style: italic;
+}
+
+/* ── Code blocks (preserve whitespace) ──────────────────────────────────── */
+.code-block {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: .75rem 1rem; font-family: 'Consolas','Courier New',monospace;
+  font-size: .76rem; color: var(--muted); white-space: pre; overflow-x: auto;
+  line-height: 1.75;
+}
+
+/* ── HPA visual ──────────────────────────────────────────────────────────── */
+.pods { display: flex; flex-wrap: wrap; gap: .35rem; }
+.pod {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem;
+}
+.pod.active { background: rgba(34,197,94,.2); border-color: var(--green); }
+.pod.scaling { background: rgba(245,158,11,.2); border-color: var(--amber); }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="slide-counter"></div>
+<div id="nav-hint">← → arrow keys or click arrows to navigate</div>
+<button class="nav-btn" id="nav-prev" onclick="go(-1)">&#8592;</button>
+<button class="nav-btn" id="nav-next" onclick="go(1)">&#8594;</button>
+
+<div class="deck" id="deck">
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 1 — TITLE                                                         -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide active">
+  <div class="slide-title-hero">
+    <div class="hero-logo">🏛️</div>
+    <div class="hero-title">DESC <span class="accent">Cloud-Native</span><br>Platform</div>
+    <div class="hero-sub">A production-grade, auto-scaling microservices platform on AWS EKS — designed for the Department of Electronic & Stamp Commerce.</div>
+    <div class="hero-meta">
+      <div class="hero-chip">📋 Tender: DESC-MRD-2026-CNC-088</div>
+      <div class="hero-chip">☁️ AWS EKS · Kubernetes 1.29</div>
+      <div class="hero-chip">📅 May 2026</div>
+      <div class="hero-chip">⏱ 8-Week Delivery</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 2 — AGENDA                                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">Agenda</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">What We'll <span class="accent">Cover</span></div>
+    <div class="grid-2" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:.6rem;">
+        <div class="card"><span style="color:var(--accent);font-weight:800;margin-right:.5rem;">01</span> The Challenge & Why Cloud-Native</div>
+        <div class="card"><span style="color:var(--accent);font-weight:800;margin-right:.5rem;">02</span> Solution Overview & Architecture</div>
+        <div class="card"><span style="color:var(--accent);font-weight:800;margin-right:.5rem;">03</span> Microservices Design</div>
+        <div class="card"><span style="color:var(--accent);font-weight:800;margin-right:.5rem;">04</span> User Experience — Citizen Portal & Admin Panel</div>
+        <div class="card"><span style="color:var(--accent);font-weight:800;margin-right:.5rem;">05</span> AWS Infrastructure & Kubernetes</div>
+        <div class="card"><span style="color:var(--accent);font-weight:800;margin-right:.5rem;">06</span> Auto-Scaling in Action</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.6rem;">
+        <div class="card"><span style="color:var(--purple);font-weight:800;margin-right:.5rem;">07</span> Infrastructure as Code (Terraform)</div>
+        <div class="card"><span style="color:var(--purple);font-weight:800;margin-right:.5rem;">08</span> GitOps with ArgoCD</div>
+        <div class="card"><span style="color:var(--purple);font-weight:800;margin-right:.5rem;">09</span> CI/CD Pipeline (GitHub Actions)</div>
+        <div class="card"><span style="color:var(--purple);font-weight:800;margin-right:.5rem;">10</span> Security Architecture</div>
+        <div class="card"><span style="color:var(--purple);font-weight:800;margin-right:.5rem;">11</span> Observability — Prometheus & Grafana</div>
+        <div class="card"><span style="color:var(--purple);font-weight:800;margin-right:.5rem;">12</span> Technology Choices, Costs & Timeline</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 3 — THE CHALLENGE                                                 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">01 — Challenge</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">The <span class="accent">Challenge</span></div>
+    <div class="slide-sub">What the RFP requires — and the problems a traditional deployment cannot solve</div>
+    <div class="cols">
+      <div class="col">
+        <h3 style="color:var(--red);">❌ Traditional Monolith Limitations</h3>
+        <ul class="checklist" style="flex:1;">
+          <li class="x">Cannot scale individual components — the entire app scales or none</li>
+          <li class="x">A single bug can bring down the whole system</li>
+          <li class="x">Deployments require full downtime or risky in-place updates</li>
+          <li class="x">No automated failover — one server failure = outage</li>
+          <li class="x">Manual infrastructure provisioning — error-prone, unrepeatable</li>
+          <li class="x">No observability — problems discovered by users, not dashboards</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3 style="color:var(--green);">✅ RFP Requirements</h3>
+        <ul class="checklist" style="flex:1;">
+          <li>Containerise monolithic components into isolated microservices</li>
+          <li>Demonstrate auto-scaling under load (HPA)</li>
+          <li>Infrastructure as Code — reproducible in one command</li>
+          <li>GitOps continuous deployment — no manual kubectl apply</li>
+          <li>Prometheus + Grafana observability</li>
+          <li>Zero-downtime rolling deployments</li>
+          <li>Multi-AZ high availability on AWS</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 4 — SOLUTION OVERVIEW                                             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">02 — Solution</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Our <span class="accent">Solution</span></div>
+    <div class="slide-sub">Five independently deployable services, all managed through code — nothing done manually</div>
+    <div class="grid-4" style="margin-bottom:1rem;">
+      <div class="card accent-border">
+        <div class="card-icon">⚡</div>
+        <h3>Microservices</h3>
+        <p>Monolith split into 4 domain services + gateway, each scalable independently</p>
+      </div>
+      <div class="card green-border">
+        <div class="card-icon">🏗️</div>
+        <h3>Infrastructure as Code</h3>
+        <p>Entire AWS environment — VPC, EKS, RDS, Redis — in Terraform modules</p>
+      </div>
+      <div class="card amber-border">
+        <div class="card-icon">🔄</div>
+        <h3>GitOps CD</h3>
+        <p>ArgoCD auto-syncs to Git — code merge = live deployment, always</p>
+      </div>
+      <div class="card purple-border">
+        <div class="card-icon">📊</div>
+        <h3>Full Observability</h3>
+        <p>Prometheus + Grafana dashboard with 20 panels, live from day 1</p>
+      </div>
+    </div>
+    <div class="quote">
+      "Every design decision in this proposal is demonstrated with a working, deployable codebase — no theoretical diagrams. The evaluation board can run <code style="color:var(--accent);">docker compose up --build</code> and see the full system running locally in under 5 minutes."
+    </div>
+    <div style="display:flex;gap:1rem;margin-top:1rem;">
+      <div class="card" style="flex:1;display:flex;align-items:center;gap:1rem;">
+        <div class="stat green"><div class="num">99.99%</div><div class="lbl">Target Uptime</div></div>
+        <div class="stat blue"><div class="num">&lt;10m</div><div class="lbl">Deploy Lead Time</div></div>
+        <div class="stat amber"><div class="num">&lt;15m</div><div class="lbl">MTTR</div></div>
+        <div class="stat purple"><div class="num">15×</div><div class="lbl">Max HPA Scale-Out</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 5 — ARCHITECTURE OVERVIEW                                         -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">02 — Architecture</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Deployment <span class="accent">Architecture</span></div>
+    <div class="slide-sub">End-to-end request flow from citizen browser to isolated data stores</div>
+    <div class="cols">
+      <div class="col col-60">
+        <div class="arch-box" style="flex:1;font-size:.78rem;line-height:1.9;">
+<span style="color:var(--muted);">Internet</span>
+  │ HTTPS
+  ▼
+<span class="hl">Route 53</span> → <span class="hl">AWS WAF</span> → <span class="hl">ALB (:443)</span>
+           │ /* (HTML)             │ /api/*
+           ▼                       ▼
+  <span class="gl">Frontend · Flask :5000</span>    <span class="hl">API Gateway · FastAPI :8000</span>
+  Citizen portal                HPA: 2–10 replicas
+  Admin panel                   ┌──────────┼──────────┐
+  HPA: 2–10 replicas            │          │          │
+                                ▼          ▼          ▼
+                        <span class="gl">User Svc</span>  <span class="al">Records</span>  <span class="pl">Notif Svc</span>
+                        <span class="gl">:8001</span>     <span class="al">:8002</span>     <span class="pl">:8003</span>
+                        HPA 2–10  HPA 2–15★ HPA 2–10
+
+                             │          │          │
+                             ▼          ▼          ▼
+                      <span style="color:var(--muted);">────── RDS PostgreSQL (Multi-AZ) ──────</span>
+                                    │
+                             <span style="color:var(--muted);">── ElastiCache Redis ──</span>
+                                (cache + pub/sub)
+        </div>
+      </div>
+      <div class="col col-40">
+        <div class="card" style="margin-bottom:.75rem;">
+          <h3>★ Records Service scales to 15</h3>
+          <p style="margin-top:.4rem;">The <code style="color:var(--amber);">/stress</code> endpoint triggers CPU-intensive prime calculation — the live HPA demo the evaluation board will watch in real time.</p>
+        </div>
+        <div class="card">
+          <h3>Traffic isolation</h3>
+          <p style="margin-top:.4rem;">All backend services run on <strong>ClusterIP</strong> — unreachable from the internet. Only the ALB → Frontend and ALB → Gateway paths are public.</p>
+        </div>
+        <div class="card">
+          <h3>Data isolation</h3>
+          <p style="margin-top:.4rem;">Three separate PostgreSQL tables owned by three separate services. No service reads another service's table directly.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 6 — MICROSERVICES DESIGN                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">03 — Microservices</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title"><span class="accent">Microservices</span> Design</div>
+    <div class="slide-sub">Each service owns its domain, its data, and its scale policy</div>
+    <div class="tbl-wrap" style="flex:1;">
+      <table class="tbl">
+        <thead><tr><th>Service</th><th>Port</th><th>Technology</th><th>Data Store</th><th>HPA</th><th>Key Responsibility</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>🌐 API Gateway</td><td>8000</td><td>FastAPI + httpx</td><td>—</td><td>2–10</td>
+            <td class="why">Single public entry point — async proxy fan-out to all 3 domain services, aggregated health check, upstream latency metrics</td>
+          </tr>
+          <tr>
+            <td>👤 User Service</td><td>8001</td><td>FastAPI + asyncpg</td><td>PostgreSQL <code>users</code></td><td>2–10</td>
+            <td class="why">Citizen registration, profile management. No Redis — demonstrates minimal coupling</td>
+          </tr>
+          <tr>
+            <td>📋 Records Service</td><td>8002</td><td>FastAPI + asyncpg + Redis</td><td>PostgreSQL <code>records</code> + Redis</td><td>2–15 ★</td>
+            <td class="why">Service request CRUD, Redis cache-aside (30s TTL), <code>/stress</code> CPU endpoint drives the HPA scaling demo</td>
+          </tr>
+          <tr>
+            <td>🔔 Notification Service</td><td>8003</td><td>FastAPI + asyncpg + Redis</td><td>PostgreSQL <code>notifications</code> + Redis</td><td>2–10</td>
+            <td class="why">Announcement CRUD, Redis pub/sub — every POST publishes to <code>desc:notifications</code> channel</td>
+          </tr>
+          <tr>
+            <td>🏛️ Frontend</td><td>5000</td><td>Flask + session auth</td><td>—</td><td>2–10</td>
+            <td class="why">Citizen portal (records, notifications, profile) + role-gated admin panel (user mgmt, health, stress trigger)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:.6rem;margin-top:.75rem;">
+      <div class="badge badge-blue">Every service exposes /health · /ready · /metrics</div>
+      <div class="badge badge-green">Multi-stage Docker builds — non-root UID 1000</div>
+      <div class="badge badge-purple">Isolated DB tables — no cross-service SQL</div>
+      <div class="badge badge-amber">Python 3.12 · FastAPI async · asyncpg</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7 — USER EXPERIENCE                                               -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">04 — User Experience</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">User <span class="accent">Experience</span></div>
+    <div class="slide-sub">Two fully separated views — citizens see nothing technical</div>
+    <div class="cols">
+      <div class="col">
+        <div class="card accent-border" style="margin-bottom:.75rem;">
+          <h3>🌐 Public Pages (No Login Required)</h3>
+          <p style="margin-top:.4rem;">Clean landing page with plain-language description of services and two CTAs: <strong>Sign In</strong> and <strong>Create Account</strong>.<br><br>Registration form collects name, email, password, and role (Citizen or Government Officer).</p>
+        </div>
+        <div class="card green-border">
+          <h3>👤 Citizen Portal <span class="badge badge-green" style="font-size:.65rem;">role: citizen</span></h3>
+          <p style="margin-top:.4rem;">After login, citizens land on their personal dashboard:</p>
+          <ul class="checklist" style="margin-top:.5rem;font-size:.8rem;">
+            <li><strong>My Records</strong> — Submit a service request, track status (pending → approved → rejected)</li>
+            <li><strong>Notifications</strong> — Read system announcements with type badges</li>
+            <li><strong>My Profile</strong> — View name, email, and account type</li>
+          </ul>
+          <p style="margin-top:.5rem;color:var(--muted);font-size:.78rem;">No pod names, no architecture diagrams, no kubectl commands — ever.</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card purple-border" style="flex:1;">
+          <h3>🔧 Admin Panel <span class="badge badge-purple" style="font-size:.65rem;">role: admin / officer</span></h3>
+          <p style="margin-top:.4rem;">Admins and officers get a full sidebar-navigated control panel:</p>
+          <ul class="checklist" style="margin-top:.5rem;font-size:.8rem;">
+            <li><strong>Dashboard</strong> — Live service health cards + quick stats (users, records, notifications, healthy services)</li>
+            <li><strong>Users</strong> — Full user table + add-user form (all roles)</li>
+            <li><strong>Records</strong> — All records with approval workflow + data-source tag</li>
+            <li><strong>Notifications</strong> — Publish form + Redis pub/sub channel info</li>
+            <li><strong>System</strong> — Architecture diagram, CPU stress trigger (single + burst ×10), k6 load test commands</li>
+          </ul>
+          <div style="margin-top:.75rem;background:var(--bg);border-radius:8px;padding:.6rem .9rem;font-size:.75rem;color:var(--muted);">
+            <strong style="color:var(--accent);">Auth:</strong> Flask session (signed cookie). SHA-256 passwords stored in-process. Demo accounts: <strong>ahmed.khan@desc.gov.pk</strong> / <code>desc2026</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 8 — AWS INFRASTRUCTURE                                            -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">05 — AWS Infrastructure</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">AWS <span class="accent">Infrastructure</span></div>
+    <div class="slide-sub">Every component is managed, highly-available, and provisioned by Terraform</div>
+    <div class="cols">
+      <div class="col col-60">
+        <div class="arch-box" style="font-size:.75rem;line-height:1.8;flex:1;">
+<span style="color:var(--muted);">AWS ap-south-1 (Mumbai)</span>
+├── <span class="hl">VPC</span> 10.0.0.0/16
+│   ├── <span class="gl">Public subnets</span>  (2 AZ)  — ALB, NAT Gateway
+│   ├── <span class="hl">Private subnets</span> (2 AZ)  — EKS worker nodes
+│   └── <span class="al">Isolated subnets</span>(2 AZ)  — RDS, ElastiCache
+│
+├── <span class="hl">EKS Cluster</span> (Kubernetes 1.29)
+│   ├── Managed node group: t3.medium × 3 baseline (auto-scale to 10)
+│   ├── ALB Ingress Controller — routes /* and /api/*
+│   ├── EBS CSI Driver — Prometheus PVC
+│   └── desc-app namespace — 5 Deployments, 5 HPAs, 5 ServiceMonitors
+│
+├── <span class="gl">RDS PostgreSQL 15</span> — Multi-AZ, encrypted, private subnet
+│
+├── <span class="pl">ElastiCache Redis 7</span> — Cluster mode, TLS in transit, private subnet
+│
+└── <span style="color:var(--muted);">Supporting: Secrets Manager · ECR · WAF · Route 53 · CloudTrail</span>
+        </div>
+      </div>
+      <div class="col col-40">
+        <div class="card accent-border">
+          <h3>Why AWS EKS?</h3>
+          <p style="margin-top:.4rem;">Managed Kubernetes control plane — no etcd to maintain. Native integration with ALB controller, EBS CSI, VPC CNI. EKS Managed Node Groups handle OS patching automatically.</p>
+        </div>
+        <div class="card green-border">
+          <h3>Why Multi-AZ?</h3>
+          <p style="margin-top:.4rem;">RDS fails over automatically in &lt;90 seconds. Redis has read replicas in a second AZ. EKS nodes span two AZs — a single AZ failure leaves the system fully operational.</p>
+        </div>
+        <div class="card amber-border">
+          <h3>Why isolated subnets for data?</h3>
+          <p style="margin-top:.4rem;">RDS and Redis have <strong>no internet route</strong> — not even outbound. Only the EKS node security group can reach them on the exact port. Defence-in-depth.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 9 — AUTO-SCALING                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">06 — Auto-Scaling</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Auto-Scaling <span class="accent">in Action</span></div>
+    <div class="slide-sub">Horizontal Pod Autoscaler + Cluster Autoscaler — two levels of elasticity</div>
+    <div class="cols">
+      <div class="col">
+        <div class="card" style="margin-bottom:.75rem;">
+          <h3>HPA Configuration per Service</h3>
+          <div style="margin-top:.75rem;display:flex;flex-direction:column;gap:.4rem;font-size:.8rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem .6rem;background:var(--bg);border-radius:6px;">
+              <span>Records Service ★</span>
+              <span><span class="badge badge-green">min 2</span> <span class="badge badge-red">max 15</span> <span class="badge badge-amber">target 50% CPU</span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem .6rem;background:var(--bg);border-radius:6px;">
+              <span>User Service</span>
+              <span><span class="badge badge-green">min 2</span> <span class="badge badge-blue">max 10</span> <span class="badge badge-amber">target 50% CPU</span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem .6rem;background:var(--bg);border-radius:6px;">
+              <span>Notification Service</span>
+              <span><span class="badge badge-green">min 2</span> <span class="badge badge-blue">max 10</span> <span class="badge badge-amber">target 60% CPU</span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem .6rem;background:var(--bg);border-radius:6px;">
+              <span>Gateway + Frontend</span>
+              <span><span class="badge badge-green">min 2</span> <span class="badge badge-blue">max 10</span> <span class="badge badge-amber">target 50–60% CPU</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="card green-border">
+          <h3>Scale-Up: 15s · Scale-Down: 5m</h3>
+          <p style="margin-top:.3rem;">Asymmetric windows are deliberate — scale up fast (protect user experience), scale down slowly (avoid thrashing under bursty traffic).</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:.75rem;">
+          <h3>Live Demo Timeline (k6 → 300 VUs)</h3>
+          <div style="margin-top:.75rem;display:flex;flex-direction:column;gap:.5rem;font-size:.8rem;">
+            <div style="display:flex;gap:.75rem;align-items:center;">
+              <span class="badge badge-blue" style="min-width:50px;text-align:center;">T+0s</span>
+              <span>k6 ramps to 300 virtual users hitting <code style="color:var(--amber);">/api/stress</code></span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center;">
+              <span class="badge badge-amber" style="min-width:50px;text-align:center;">T+15s</span>
+              <span>Records Service CPU &gt; 50% threshold</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center;">
+              <span class="badge badge-green" style="min-width:50px;text-align:center;">T+30s</span>
+              <span>HPA fires — <strong>2 → 6 replicas</strong></span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center;">
+              <span class="badge badge-green" style="min-width:50px;text-align:center;">T+60s</span>
+              <span>HPA continues — <strong>6 → 15 replicas</strong></span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center;">
+              <span class="badge badge-purple" style="min-width:50px;text-align:center;">T+90s</span>
+              <span>Cluster Autoscaler adds EC2 nodes if needed</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center;">
+              <span class="badge badge-amber" style="min-width:50px;text-align:center;">T+5m</span>
+              <span>k6 ramps down — CPU falls below threshold</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center;">
+              <span class="badge badge-blue" style="min-width:50px;text-align:center;">T+10m</span>
+              <span>5-min stabilisation expires — <strong>15 → 2 replicas</strong></span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.3rem;">
+          <p style="font-size:.75rem;color:var(--muted);">Records Service pods (baseline 2 → peak 15)</p>
+          <div class="pods">
+            <div class="pod active">✓</div><div class="pod active">✓</div>
+            <div class="pod scaling">↑</div><div class="pod scaling">↑</div><div class="pod scaling">↑</div><div class="pod scaling">↑</div>
+            <div class="pod">+</div><div class="pod">+</div><div class="pod">+</div><div class="pod">+</div><div class="pod">+</div><div class="pod">+</div><div class="pod">+</div><div class="pod">+</div><div class="pod">+</div>
+          </div>
+          <div style="font-size:.7rem;color:var(--muted);display:flex;gap:1rem;margin-top:.3rem;">
+            <span><span style="color:var(--green);">■</span> Running</span>
+            <span><span style="color:var(--amber);">■</span> Scaling up</span>
+            <span><span style="color:var(--border);">■</span> Capacity available</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 10 — TERRAFORM                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">07 — Infrastructure as Code</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Infrastructure as Code — <span class="accent">Terraform</span></div>
+    <div class="slide-sub">The entire AWS environment is reproducible with a single command</div>
+    <div class="cols">
+      <div class="col col-40">
+        <div class="arch-box" style="font-size:.75rem;line-height:1.8;">
+<span class="hl">terraform apply</span>
+├── <span class="gl">module.vpc</span>          — VPC, subnets, NAT
+├── <span class="gl">module.security_groups</span> — SGs (least-privilege)
+├── <span class="gl">module.eks</span>          — EKS cluster + nodes
+├── <span class="gl">module.rds</span>          — PostgreSQL Multi-AZ
+├── <span class="gl">module.elasticache</span>  — Redis cluster + TLS
+└── <span class="hl">helm_release.argocd</span> — ArgoCD on EKS
+
+Remote state: <span class="al">S3 bucket + DynamoDB lock</span>
+Secrets:      <span class="al">AWS Secrets Manager</span>
+        </div>
+        <div class="card" style="margin-top:.75rem;">
+          <h3>Why Terraform?</h3>
+          <p style="margin-top:.3rem;">Declarative, state-tracked, provider ecosystem covers AWS + Helm + Kubernetes in one tool. Modular structure makes each layer independently testable. <code style="color:var(--accent);">terraform plan</code> shows exactly what will change before anything happens.</p>
+        </div>
+      </div>
+      <div class="col col-60">
+        <h3 style="margin-bottom:.6rem;">Why not CloudFormation or CDK?</h3>
+        <div class="tbl-wrap" style="flex:1;">
+          <table class="tbl">
+            <thead><tr><th>Criterion</th><th>Terraform ✅</th><th>CloudFormation ❌</th></tr></thead>
+            <tbody>
+              <tr><td>Multi-cloud portability</td><td class="why">Works with any provider</td><td class="why">AWS-only</td></tr>
+              <tr><td>Helm / Kubernetes support</td><td class="why">Native providers — deploy ArgoCD in same plan</td><td class="why">Requires custom resources or CDK</td></tr>
+              <tr><td>State management</td><td class="why">S3 + DynamoDB lock — team-safe</td><td class="why">Built-in but less flexible</td></tr>
+              <tr><td>Module ecosystem</td><td class="why">Terraform Registry — battle-tested modules</td><td class="why">No equivalent registry</td></tr>
+              <tr><td>Plan preview</td><td class="why"><code>terraform plan</code> — diff before apply</td><td class="why">Change sets (more verbose)</td></tr>
+              <tr><td>Industry adoption</td><td class="why">De-facto IaC standard</td><td class="why">AWS-specific teams only</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 11 — GITOPS / ARGOCD                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">08 — GitOps</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">GitOps with <span class="accent">ArgoCD</span></div>
+    <div class="slide-sub">Git is the single source of truth — no manual deployments, ever</div>
+    <div class="cols">
+      <div class="col">
+        <div class="card accent-border" style="margin-bottom:.75rem;">
+          <h3>How it works</h3>
+          <div class="flow" style="margin-top:.75rem;flex-direction:column;align-items:flex-start;gap:.5rem;">
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div class="flow-box" style="background:rgba(14,165,233,.1);">1. Dev merges PR</div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-box">GitHub Actions CI</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div class="flow-box">2. Image pushed to DockerHub</div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-box">sha-abc1234 tag</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div class="flow-box">3. yq updates values.yaml</div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-box">git commit [skip ci]</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div class="flow-box" style="background:rgba(14,165,233,.1);">4. ArgoCD detects diff</div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-box">Self-heals to Git state</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div class="flow-box">5. Rolling update, zero-downtime</div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-box" style="background:rgba(34,197,94,.1);border-color:var(--green);">Live ✓</div>
+            </div>
+          </div>
+        </div>
+        <div class="card green-border">
+          <h3>Rollback = one git revert</h3>
+          <p style="margin-top:.3rem;">Bad deployment? <code style="color:var(--accent);">git revert HEAD</code> — ArgoCD detects the revert within 3 minutes and rolls back automatically. MTTR &lt;15 minutes.</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:.75rem;">
+          <h3>ArgoCD Configuration</h3>
+          <div class="code-block" style="margin-top:.6rem;font-size:.73rem;">
+<span style="color:var(--green);">syncPolicy</span>:
+  <span style="color:var(--accent);">automated</span>:
+    prune: <span style="color:var(--amber);">true</span>     <span style="color:var(--border);"># remove deleted resources</span>
+    selfHeal: <span style="color:var(--amber);">true</span>  <span style="color:var(--border);"># fix manual changes</span>
+  syncOptions:
+    - CreateNamespace=true
+<span style="color:var(--green);">ignoreDifferences</span>:   <span style="color:var(--border);"># HPA current replicas</span>
+  - group: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    jsonPointers:
+      - /spec/replicas
+          </div>
+        </div>
+        <div class="card amber-border">
+          <h3>Why GitOps? Why not direct kubectl?</h3>
+          <ul class="checklist" style="margin-top:.4rem;font-size:.8rem;">
+            <li>Audit trail — every deployment is a git commit</li>
+            <li>Drift detection — ArgoCD flags manual changes</li>
+            <li>Self-healing — deleted pod or config is restored automatically</li>
+            <li>No credentials on CI runner — ArgoCD pulls from Git, never pushed to</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 12 — CI/CD PIPELINE                                               -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">09 — CI/CD</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">CI/CD Pipeline — <span class="accent">GitHub Actions</span></div>
+    <div class="slide-sub">Path-filtered per-service CI + a parallel matrix release workflow</div>
+    <div class="cols">
+      <div class="col">
+        <div class="card" style="margin-bottom:.75rem;">
+          <h3>Per-Service CI (on every PR / push)</h3>
+          <div style="margin-top:.6rem;font-size:.78rem;display:flex;flex-direction:column;gap:.35rem;">
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div class="flow-box" style="font-size:.72rem;">paths: app/gateway/**</div>
+              <span class="flow-arrow">→</span>
+              <div style="font-size:.72rem;color:var(--muted);">only triggers for that service</div>
+            </div>
+            <div style="background:var(--bg);border-radius:8px;padding:.6rem .8rem;font-family:monospace;font-size:.72rem;color:var(--muted);line-height:1.7;">
+job: <span style="color:var(--accent);">lint-and-test</span><br>
+  ruff check .           <span style="color:var(--green);"># linting</span><br>
+  pytest tests/ -v       <span style="color:var(--green);"># unit tests (no infra)</span><br>
+<br>
+job: <span style="color:var(--accent);">docker-build</span> (needs: lint-and-test)<br>
+  docker/build-push-action  push: false
+            </div>
+          </div>
+        </div>
+        <div class="card green-border">
+          <h3>Release Workflow (on merge to main)</h3>
+          <div style="margin-top:.5rem;font-family:monospace;font-size:.72rem;background:var(--bg);padding:.6rem .8rem;border-radius:8px;color:var(--muted);line-height:1.7;">
+<span style="color:var(--accent);">strategy.matrix</span>: [gateway, user-svc, records-svc, …]<br>
+→ Build all 5 images <span style="color:var(--green);">in parallel</span><br>
+→ Push: <span style="color:var(--amber);">sha-abc1234</span> + <span style="color:var(--muted);">latest</span><br>
+→ yq: values.yaml image.tag = sha-abc1234<br>
+→ git commit <span style="color:var(--border);">[skip ci]</span> — ArgoCD picks it up
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:.75rem;">
+          <h3>Why two separate tags?</h3>
+          <div style="display:flex;gap:.75rem;margin-top:.6rem;">
+            <div style="flex:1;background:var(--bg);border-radius:8px;padding:.65rem;text-align:center;">
+              <div style="font-family:monospace;color:var(--amber);font-weight:700;margin-bottom:.3rem;">sha-abc1234</div>
+              <div style="font-size:.75rem;color:var(--muted);">Pinned in Helm values.yaml — ArgoCD always deploys this exact image. Rollback = revert this tag.</div>
+            </div>
+            <div style="flex:1;background:var(--bg);border-radius:8px;padding:.65rem;text-align:center;">
+              <div style="font-family:monospace;color:var(--muted);font-weight:700;margin-bottom:.3rem;">latest</div>
+              <div style="font-size:.75rem;color:var(--muted);">Used by Docker Compose for local dev — always gets the newest build without any manual config.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card amber-border">
+          <h3>What every service CI tests</h3>
+          <ul class="checklist" style="margin-top:.4rem;font-size:.8rem;">
+            <li>Ruff linting — PEP 8 + import ordering</li>
+            <li>All DB calls mocked — no live PostgreSQL in CI</li>
+            <li>All Redis calls mocked — no live Redis in CI</li>
+            <li>Prometheus registry cleaned between tests — no duplicate metric errors</li>
+            <li>Docker image builds successfully (push: false in CI)</li>
+          </ul>
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:.75rem;">
+          <div class="badge badge-green">5 CI workflows</div>
+          <div class="badge badge-blue">1 release workflow</div>
+          <div class="badge badge-amber">34 unit tests total</div>
+          <div class="badge badge-purple">Path-filtered — no wasteful rebuilds</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 13 — SECURITY                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">10 — Security</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Security — <span class="accent">Defence in Depth</span></div>
+    <div class="slide-sub">Seven independent security layers — compromise one, the rest still hold</div>
+    <div class="grid-2" style="flex:1;">
+      <div class="card">
+        <div style="display:flex;gap:.75rem;">
+          <div style="font-size:1.5rem;">🛡️</div>
+          <div>
+            <h3>AWS WAF → ALB</h3>
+            <p>OWASP managed rule group + rate limiting (1000 req/5min) before any traffic reaches EKS. SQL injection, XSS, and bad bot rules enabled by default.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:.75rem;">
+          <div style="font-size:1.5rem;">🔒</div>
+          <div>
+            <h3>Isolated Network Tiers</h3>
+            <p>RDS and Redis sit in subnets with <strong>no internet route</strong> — outbound or inbound. Only EKS node SGs reach them on the exact port, referenced by SG ID (not CIDR).</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:.75rem;">
+          <div style="font-size:1.5rem;">🗝️</div>
+          <div>
+            <h3>Secrets Management</h3>
+            <p>DB passwords and Redis auth tokens generated by Terraform's <code>random_password</code> and stored in AWS Secrets Manager. Never in Git, never in container images.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:.75rem;">
+          <div style="font-size:1.5rem;">👤</div>
+          <div>
+            <h3>Non-Root Containers</h3>
+            <p>All 5 images run as UID 1000 (<code>appuser</code>). <code>runAsNonRoot: true</code> and <code>allowPrivilegeEscalation: false</code> in all Kubernetes securityContexts.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:.75rem;">
+          <div style="font-size:1.5rem;">🔐</div>
+          <div>
+            <h3>TLS Everywhere</h3>
+            <p>ALB terminates HTTPS (ACM certificate). Redis TLS in-transit (<code>transit_encryption_enabled</code>). RDS encrypted at rest (AES-256) and in transit.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:.75rem;">
+          <div style="font-size:1.5rem;">📋</div>
+          <div>
+            <h3>IRSA — Least-Privilege IAM</h3>
+            <p>IAM Roles for Service Accounts (IRSA) — each pod gets only the AWS permissions it actually needs. No shared credentials, no wildcard policies.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 14 — OBSERVABILITY                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">11 — Observability</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title"><span class="accent">Observability</span> — Prometheus + Grafana</div>
+    <div class="slide-sub">Live metrics from every service — no manual setup required in either environment</div>
+    <div class="cols">
+      <div class="col col-40">
+        <div class="card accent-border" style="margin-bottom:.75rem;">
+          <h3>Local (Docker Compose)</h3>
+          <p style="margin-top:.3rem;">Prometheus scrapes all 5 services every 15 s. Grafana auto-provisions the dashboard from a volume-mounted JSON. Zero manual steps.</p>
+          <div style="margin-top:.5rem;font-size:.78rem;">
+            <div>🔗 <code style="color:var(--accent);">localhost:9095</code> — Prometheus</div>
+            <div>🔗 <code style="color:var(--accent);">localhost:3100</code> — Grafana <span style="color:var(--muted);">(admin/desc2026)</span></div>
+          </div>
+        </div>
+        <div class="card green-border">
+          <h3>EKS (Production)</h3>
+          <p style="margin-top:.3rem;">kube-prometheus-stack via ArgoCD. ServiceMonitor CRDs auto-discover all 5 services. Dashboard ConfigMap labeled <code style="color:var(--accent);">grafana_dashboard: "1"</code> — sidecar imports it automatically.</p>
+        </div>
+      </div>
+      <div class="col col-60">
+        <h3 style="margin-bottom:.6rem;">Dashboard — 20 Panels across 6 rows</h3>
+        <div style="display:flex;flex-direction:column;gap:.4rem;flex:1;">
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <span style="color:var(--accent);font-size:.8rem;font-weight:700;width:130px;flex-shrink:0;">Overview (4 stats)</span>
+            <span style="font-size:.77rem;color:var(--muted);">Gateway req/s · 5xx error % · upstream p95 latency · cache hit ratio — with colour thresholds</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <span style="color:var(--green);font-size:.8rem;font-weight:700;width:130px;flex-shrink:0;">Gateway</span>
+            <span style="font-size:.77rem;color:var(--muted);">Request rate by HTTP status · upstream p50/p95/p99 latency by upstream service</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <span style="color:var(--amber);font-size:.8rem;font-weight:700;width:130px;flex-shrink:0;">Business Metrics</span>
+            <span style="font-size:.77rem;color:var(--muted);">Users / records / notifications creation rate · notifications by type (info/success/warning/error)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <span style="color:var(--purple);font-size:.8rem;font-weight:700;width:130px;flex-shrink:0;">Database & Cache</span>
+            <span style="font-size:.77rem;color:var(--muted);">DB query p95 latency by service + operation · cache hits vs misses (rate per second)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <span style="color:var(--pink);font-size:.8rem;font-weight:700;width:130px;flex-shrink:0;">Redis & Frontend</span>
+            <span style="font-size:.77rem;color:var(--muted);">Redis publish p50/p95 latency · frontend request rate by path and status code</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <span style="color:var(--red);font-size:.8rem;font-weight:700;width:130px;flex-shrink:0;">HPA Scaling</span>
+            <span style="font-size:.77rem;color:var(--muted);">Gateway request rate by path · active DB connections — watch stress-→scale event live</span>
+          </div>
+          <div style="display:flex;gap:.5rem;margin-top:.3rem;">
+            <div class="badge badge-blue">Auto-refresh: 10s</div>
+            <div class="badge badge-green">7 alert rules</div>
+            <div class="badge badge-amber">Alertmanager → Slack</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 15 — TECHNOLOGY CHOICES                                           -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">12 — Technology Choices</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Technology <span class="accent">Choices</span> &amp; Rationale</div>
+    <div class="slide-sub">Every tool was selected for a specific reason — not because it is popular</div>
+    <div class="tbl-wrap" style="flex:1;">
+      <table class="tbl">
+        <thead><tr><th>Layer</th><th>Tool / Version</th><th>Why This, Not an Alternative?</th></tr></thead>
+        <tbody>
+          <tr><td>Cloud</td><td><span class="badge badge-blue">AWS EKS 1.29</span></td><td class="why">Managed K8s control plane (no etcd to maintain). Native ALB controller, EBS CSI, VPC CNI. RDS + ElastiCache as managed stateful services — no DB ops burden on the team.</td></tr>
+          <tr><td>IaC</td><td><span class="badge badge-purple">Terraform ≥ 1.6</span></td><td class="why">Declarative + state-tracked. Provider ecosystem covers AWS + Helm + K8s in one plan. <code>terraform plan</code> shows changes before they happen. CloudFormation is AWS-only and verbose.</td></tr>
+          <tr><td>GitOps CD</td><td><span class="badge badge-blue">ArgoCD v2.10</span></td><td class="why">Kubernetes-native; self-healing (selfHeal: true); drift detection; audit trail in Git. Flux is equally valid — ArgoCD chosen for its visual UI (demo-friendly) and wider adoption.</td></tr>
+          <tr><td>CI</td><td><span class="badge badge-green">GitHub Actions</span></td><td class="why">Native to GitHub, zero infrastructure to maintain. Path-filtered triggers prevent wasteful rebuilds. Matrix strategy builds all 5 images in parallel on release.</td></tr>
+          <tr><td>API Framework</td><td><span class="badge badge-amber">FastAPI (Python 3.12)</span></td><td class="why">Async-native with asyncpg. Auto-generates OpenAPI docs. Prometheus client integrates directly. Django/Flask too heavyweight; synchronous frameworks create event loop contention.</td></tr>
+          <tr><td>Database</td><td><span class="badge badge-green">PostgreSQL 15 (RDS)</span></td><td class="why">ACID guarantees, asyncpg async driver, Multi-AZ failover (&lt;90s). MySQL lacks some JSON operators used. MongoDB would add operational complexity for structured relational data.</td></tr>
+          <tr><td>Cache/PubSub</td><td><span class="badge badge-red">Redis 7 (ElastiCache)</span></td><td class="why">Unified cache-aside + pub/sub in one service. Memcached lacks pub/sub. Redis 7 cluster mode gives HA without application changes.</td></tr>
+          <tr><td>Observability</td><td><span class="badge badge-purple">Prometheus + Grafana</span></td><td class="why">De-facto Kubernetes observability stack. kube-prometheus-stack deploys everything via one Helm chart. ServiceMonitor CRDs auto-discover all services. DataDog and New Relic cost 10× more with vendor lock-in.</td></tr>
+          <tr><td>Container Registry</td><td><span class="badge badge-blue">DockerHub</span></td><td class="why">Free public tier sufficient for demo; no additional AWS costs. ECR would require IAM auth on CI runners — adds complexity without benefit at this scale.</td></tr>
+          <tr><td>Load Testing</td><td><span class="badge badge-amber">k6 + Locust</span></td><td class="why">k6 for precise, scriptable VU ramps; Locust for web UI live demo. JMeter is GUI-heavy and Java-dependent — poor fit for CI pipelines.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 16 — COST SUMMARY                                                 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">12 — Cost</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Cost <span class="accent">Summary</span></div>
+    <div class="slide-sub">Transparent pricing — AWS costs passed through at cost with no markup</div>
+    <div class="cols">
+      <div class="col">
+        <div class="card" style="margin-bottom:.75rem;">
+          <h3>One-Time Setup Fee — $19,000</h3>
+          <div style="margin-top:.75rem;display:flex;flex-direction:column;gap:.4rem;font-size:.8rem;">
+            <div style="display:flex;justify-content:space-between;padding:.3rem .5rem;background:var(--bg);border-radius:6px;">
+              <span>Architecture &amp; Infrastructure (Terraform)</span><span style="color:var(--accent);font-weight:700;">$8,500</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:.3rem .5rem;background:var(--bg);border-radius:6px;">
+              <span>Microservices + Citizen Portal + Admin Panel</span><span style="color:var(--accent);font-weight:700;">$7,000</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:.3rem .5rem;background:var(--bg);border-radius:6px;">
+              <span>CI/CD Pipeline &amp; Test Suites</span><span style="color:var(--accent);font-weight:700;">$1,500</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:.3rem .5rem;background:var(--bg);border-radius:6px;">
+              <span>Observability (Prometheus + Grafana + Alerts)</span><span style="color:var(--accent);font-weight:700;">$1,500</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:.3rem .5rem;background:var(--bg);border-radius:6px;">
+              <span>Documentation &amp; Knowledge Transfer</span><span style="color:var(--accent);font-weight:700;">$500</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Monthly AWS Cost — $476/month</h3>
+          <div style="margin-top:.6rem;display:flex;flex-direction:column;gap:.3rem;font-size:.78rem;">
+            <div style="display:flex;justify-content:space-between;"><span>EKS + EC2 (3×t3.medium + autoscale)</span><span style="color:var(--muted);">$194</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>RDS PostgreSQL Multi-AZ</span><span style="color:var(--muted);">$116</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>ElastiCache Redis</span><span style="color:var(--muted);">$25</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>Networking (ALB, NAT, data transfer)</span><span style="color:var(--muted);">$126</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>Supporting services</span><span style="color:var(--muted);">$15</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card green-border" style="margin-bottom:.75rem;">
+          <h3>Total Cost of Ownership</h3>
+          <div style="display:flex;gap:1rem;margin-top:.75rem;flex-wrap:wrap;">
+            <div class="stat green" style="flex:1;">
+              <div class="num" style="font-size:1.8rem;">$31,912</div>
+              <div class="lbl">Year 1 Total<br>(setup + AWS + retainer)</div>
+            </div>
+            <div class="stat blue" style="flex:1;">
+              <div class="num" style="font-size:1.8rem;">$12,912</div>
+              <div class="lbl">Year 2+ Annual<br>(AWS + retainer only)</div>
+            </div>
+          </div>
+          <div style="margin-top:.75rem;font-size:.75rem;color:var(--muted);">PKR equivalent at 280 PKR/USD (adjusted to SBP rate on invoice date)</div>
+        </div>
+        <div class="card amber-border" style="margin-bottom:.75rem;">
+          <h3>Payment Milestones</h3>
+          <div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.3rem;font-size:.78rem;">
+            <div style="display:flex;justify-content:space-between;"><span>25% — Contract signing + kickoff</span><span style="color:var(--amber);">$4,750 · Week 0</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>25% — EKS cluster running</span><span style="color:var(--amber);">$4,750 · Week 2</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>25% — All services deployed on EKS</span><span style="color:var(--amber);">$4,750 · Week 5</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>25% — Demo accepted by board</span><span style="color:var(--amber);">$4,750 · Week 8</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>1-Year Managed Service Retainer — $600/month</h3>
+          <ul class="checklist" style="margin-top:.4rem;font-size:.78rem;">
+            <li>24/7 infrastructure monitoring + on-call</li>
+            <li>Security patching within 48h of CVE</li>
+            <li>Monthly cost optimisation review</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 17 — DELIVERY TIMELINE                                            -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">12 — Timeline</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">8-Week <span class="accent">Delivery Timeline</span></div>
+    <div class="slide-sub">Phased delivery with a working demo at every milestone</div>
+    <div class="timeline" style="flex:0 0 auto;margin-bottom:1.25rem;">
+      <div class="tl-item">
+        <div class="tl-week">Week 1</div>
+        <div class="tl-dot"></div>
+        <div class="tl-title">AWS Setup</div>
+        <div class="tl-desc">Account, Terraform state bootstrap, VPC + SGs</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 2</div>
+        <div class="tl-dot" style="background:var(--green);"></div>
+        <div class="tl-title">EKS + Data ★</div>
+        <div class="tl-desc">EKS cluster, RDS Multi-AZ, ElastiCache Redis, IRSA</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 3</div>
+        <div class="tl-dot"></div>
+        <div class="tl-title">Microservices</div>
+        <div class="tl-desc">5 services containerised, Docker Compose local stack</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 4</div>
+        <div class="tl-dot"></div>
+        <div class="tl-title">Helm + ArgoCD</div>
+        <div class="tl-desc">Chart deployed, GitOps live, first EKS deployment</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 5</div>
+        <div class="tl-dot" style="background:var(--green);"></div>
+        <div class="tl-title">CI/CD ★</div>
+        <div class="tl-desc">GitHub Actions, release workflow, image push automation</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 6</div>
+        <div class="tl-dot"></div>
+        <div class="tl-title">Observability</div>
+        <div class="tl-desc">Prometheus + Grafana, 20-panel dashboard, alert rules</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 7</div>
+        <div class="tl-dot"></div>
+        <div class="tl-title">Load Testing</div>
+        <div class="tl-desc">k6 + Locust, HPA tuning, dry-run demonstration</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 8</div>
+        <div class="tl-dot" style="background:var(--amber);"></div>
+        <div class="tl-title">Demo Day ★</div>
+        <div class="tl-desc">Documentation, handover, live evaluation board demo</div>
+      </div>
+    </div>
+    <div class="grid-2" style="flex:1;">
+      <div class="card green-border">
+        <h3>SLA Commitments</h3>
+        <div style="display:flex;flex-direction:column;gap:.35rem;margin-top:.5rem;font-size:.8rem;">
+          <div style="display:flex;justify-content:space-between;"><span>Application Uptime</span><span style="color:var(--green);font-weight:700;">99.99%</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Deployment Lead Time</span><span style="color:var(--accent);font-weight:700;">&lt; 10 minutes</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Mean Time to Recovery (MTTR)</span><span style="color:var(--accent);font-weight:700;">&lt; 15 minutes</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>RDS Failover Time</span><span style="color:var(--amber);font-weight:700;">&lt; 90 seconds</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Critical Alert Response</span><span style="color:var(--amber);font-weight:700;">4 hours (24/7)</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Security Patch SLA</span><span style="color:var(--muted);font-weight:700;">48 hours (CVE)</span></div>
+        </div>
+      </div>
+      <div class="card accent-border">
+        <h3>Key Differentiators</h3>
+        <ul class="checklist" style="margin-top:.5rem;font-size:.8rem;">
+          <li>Working codebase from day 1 — not theoretical diagrams</li>
+          <li>Live HPA demo — pods scale 2 → 15 in 90 seconds, on screen</li>
+          <li>GitOps-first — every deployment traceable to a git commit</li>
+          <li>Full IaC — entire AWS environment reproduced in one command</li>
+          <li>Citizen portal — real end-user UX, not a developer tool</li>
+          <li>Security by default — non-root, encrypted, WAF, isolated subnets</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 18 — NEXT STEPS                                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">DESC</span><span class="tag">Next Steps</span>
+  </div>
+  <div class="slide-body">
+    <div class="slide-title">Next <span class="accent">Steps</span></div>
+    <div class="slide-sub">The system is ready to run today — try it yourself before committing</div>
+    <div class="cols">
+      <div class="col">
+        <div class="card green-border" style="margin-bottom:.75rem;">
+          <h3>🖥️ Run it locally right now</h3>
+          <div class="code-block" style="margin-top:.6rem;">
+<span style="color:var(--green);"># Clone and start the full stack</span>
+git clone https://github.com/your-org/desc-cloudnative
+cd desc-cloudnative/app
+docker compose up --build
+
+<span style="color:var(--green);"># Open in browser</span>
+open http://localhost:3500      <span style="color:var(--border);"># Citizen portal</span>
+open http://localhost:3100      <span style="color:var(--border);"># Grafana (admin/desc2026)</span>
+open http://localhost:9095      <span style="color:var(--border);"># Prometheus</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>📋 Demo accounts (password: <span style="color:var(--accent);">desc2026</span>)</h3>
+          <div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.3rem;font-size:.8rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .6rem;background:var(--bg);border-radius:6px;">
+              <code>ahmed.khan@desc.gov.pk</code>
+              <span class="badge badge-purple">Admin Panel</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .6rem;background:var(--bg);border-radius:6px;">
+              <code>fatima.bibi@desc.gov.pk</code>
+              <span class="badge badge-blue">Officer → Admin Panel</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .6rem;background:var(--bg);border-radius:6px;">
+              <code>tariq@desc.gov.pk</code>
+              <span class="badge badge-green">Citizen Portal</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card amber-border" style="margin-bottom:.75rem;">
+          <h3>🗓️ Proposed Next Actions</h3>
+          <div style="margin-top:.6rem;display:flex;flex-direction:column;gap:.5rem;">
+            <div style="display:flex;gap:.75rem;align-items:flex-start;font-size:.83rem;">
+              <span class="badge badge-amber" style="flex-shrink:0;">1</span>
+              <span>DESC team evaluates the running system locally or on a shared demo URL</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:flex-start;font-size:.83rem;">
+              <span class="badge badge-amber" style="flex-shrink:0;">2</span>
+              <span>Technical Q&amp;A session — 1 hour, architecture walkthrough with live system</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:flex-start;font-size:.83rem;">
+              <span class="badge badge-amber" style="flex-shrink:0;">3</span>
+              <span>Contract signing and kickoff — AWS account access shared, Week 1 begins</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:flex-start;font-size:.83rem;">
+              <span class="badge badge-amber" style="flex-shrink:0;">4</span>
+              <span>Week 2 milestone review — EKS and RDS provisioned, evaluation board confirms scope</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:flex-start;font-size:.83rem;">
+              <span class="badge badge-amber" style="flex-shrink:0;">5</span>
+              <span>Week 8 live demonstration — HPA scaling shown on projector with Grafana side-by-side</span>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="text-align:center;padding:1.5rem;">
+          <div style="font-size:2rem;margin-bottom:.5rem;">🤝</div>
+          <div style="font-size:1.1rem;font-weight:700;margin-bottom:.4rem;">Ready to begin <span style="color:var(--accent);">Week 1</span> on contract signature</div>
+          <div style="font-size:.85rem;color:var(--muted);">Tender: DESC-MRD-2026-CNC-088</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 19 — Q&A                                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-title-hero" style="background:radial-gradient(ellipse at 50% 40%, rgba(99,102,241,.1) 0%, transparent 65%);">
+    <div style="font-size:3.5rem;margin-bottom:1rem;">💬</div>
+    <div class="hero-title">Questions &amp; <span class="accent">Discussion</span></div>
+    <div class="hero-sub"></div>
+    <div class="hero-meta" style="margin-top:1.5rem;">
+      <div class="hero-chip">🖥️ Demo: localhost:3500</div>
+      <div class="hero-chip">📊 Grafana: localhost:3100</div>
+      <div class="hero-chip">📋 Tender: DESC-MRD-2026-CNC-088</div>
+    </div>
+    <div style="margin-top:2rem;display:flex;gap:2rem;font-size:.85rem;color:var(--muted);">
+      <div>🏗️ Terraform · EKS · RDS · Redis</div>
+      <div>🔄 ArgoCD · GitHub Actions</div>
+      <div>📊 Prometheus · Grafana</div>
+      <div>🐳 Docker · Kubernetes · HPA</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<script>
+const slides = document.querySelectorAll('.slide');
+let cur = 0;
+let busy = false;
+const DUR = 360; // ms
+const EASING = 'cubic-bezier(0.22,1,0.36,1)';
+const ANIM = `opacity ${DUR}ms ease, transform ${DUR}ms ${EASING}`;
+
+// Show first slide instantly
+slides[0].style.opacity = '1';
+slides[0].style.transform = 'translateX(0)';
+slides[0].classList.add('active');
+
+function go(dir) {
+  if (busy) return;
+  const next = cur + dir;
+  if (next < 0 || next >= slides.length) return;
+  busy = true;
+
+  const from = slides[cur];
+  const to   = slides[next];
+
+  // Instantly position the entering slide off-screen (no transition yet)
+  to.style.transition = 'none';
+  to.style.opacity    = '0';
+  to.style.transform  = `translateX(${dir > 0 ? '70px' : '-70px'})`;
+  to.classList.add('active');
+
+  // Force a reflow so the instant positioning takes effect before we re-enable transitions
+  to.getBoundingClientRect();
+
+  // Now enable transitions on both slides and fire them
+  from.style.transition = ANIM;
+  to.style.transition   = ANIM;
+
+  from.style.opacity   = '0';
+  from.style.transform = `translateX(${dir > 0 ? '-70px' : '70px'})`;
+  to.style.opacity     = '1';
+  to.style.transform   = 'translateX(0)';
+
+  const prevIdx = cur;
+  cur = next;
+  updateUI();
+
+  setTimeout(() => {
+    from.classList.remove('active');
+    // Clear all inline styles so the slide returns to pure CSS state
+    from.style.cssText = '';
+    to.style.transition = '';
+    to.style.transform  = '';
+    to.style.opacity    = '';
+    busy = false;
+  }, DUR + 20);
+}
+
+function updateUI() {
+  const pct = slides.length > 1 ? (cur / (slides.length - 1)) * 100 : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('slide-counter').textContent = (cur + 1) + ' / ' + slides.length;
+  document.getElementById('nav-prev').style.opacity = cur === 0 ? '.25' : '1';
+  document.getElementById('nav-next').style.opacity = cur === slides.length - 1 ? '.25' : '1';
+}
+// alias so the nav buttons still work
+function update() { updateUI(); }
+
+document.addEventListener('keydown', e => {
+  if (['ArrowRight','ArrowDown',' '].includes(e.key)) { e.preventDefault(); go(1); }
+  if (['ArrowLeft', 'ArrowUp'      ].includes(e.key)) { e.preventDefault(); go(-1); }
+  if (e.key === 'Home') { if (cur !== 0) { cur = 1; go(-1); } }
+  if (e.key === 'End')  { if (cur !== slides.length-1) { cur = slides.length-2; go(1); } }
+});
+
+// Touch swipe
+let tx = 0;
+document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; });
+document.addEventListener('touchend',   e => {
+  const dx = tx - e.changedTouches[0].clientX;
+  if (Math.abs(dx) > 50) go(dx > 0 ? 1 : -1);
+});
+
+updateUI(); // initialise counter + progress bar
+</script>
+</body>
+</html>

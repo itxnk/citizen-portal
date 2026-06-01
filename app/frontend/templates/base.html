@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DESC Citizen Portal{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --border:  #334155;
+      --accent:  #38bdf8;
+      --accent2: #0ea5e9;
+      --text:    #e2e8f0;
+      --muted:   #94a3b8;
+      --green:   #22c55e;
+      --amber:   #f59e0b;
+      --red:     #ef4444;
+      --purple:  #a78bfa;
+    }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Navbar ─────────────────────────────────────────────────────── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+    .nav-brand { font-size: 1.1rem; font-weight: 700; color: var(--accent); text-decoration: none; letter-spacing: -0.02em; }
+    .nav-brand span { color: var(--text); font-weight: 400; }
+    .nav-links { display: flex; align-items: center; gap: 0.5rem; }
+    .nav-links a, .nav-links button {
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 0.875rem; text-decoration: none;
+      padding: 0.4rem 0.75rem; border-radius: 6px; transition: all .15s;
+    }
+    .nav-links a:hover, .nav-links button:hover { background: var(--border); color: var(--text); }
+    .nav-links a.active { color: var(--accent); }
+    .user-badge {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: var(--border); border-radius: 20px;
+      padding: 0.3rem 0.75rem 0.3rem 0.5rem; font-size: 0.8rem;
+    }
+    .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: #fff; flex-shrink: 0; }
+
+    /* ── Flash messages ─────────────────────────────────────────────── */
+    .flash-area { padding: 0.75rem 1.5rem 0; }
+    .flash {
+      padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem;
+      margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .flash.success { background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.3); color: #86efac; }
+    .flash.error   { background: rgba(239,68,68,.15);  border: 1px solid rgba(239,68,68,.3);  color: #fca5a5; }
+
+    /* ── Main content ───────────────────────────────────────────────── */
+    main { flex: 1; padding: 1.5rem; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+    /* ── Footer ─────────────────────────────────────────────────────── */
+    footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); }
+
+    /* ── Shared components ──────────────────────────────────────────── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+    .card-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
+    input[type=text], input[type=email], input[type=password], select, textarea {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); padding: 0.6rem 0.75rem; font-size: 0.875rem; outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--accent2); color: #fff; }
+    .btn-danger  { background: var(--red); color: #fff; }
+    .btn-ghost   { background: var(--border); color: var(--text); }
+    .form-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+    .form-row .field { flex: 1; min-width: 180px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+    td { padding: 0.65rem 0.75rem; border-bottom: 1px solid rgba(51,65,85,.5); }
+    tr:last-child td { border-bottom: none; }
+    .empty-row td { text-align: center; color: var(--muted); padding: 2rem; }
+    .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
+    .badge-pending  { background: rgba(245,158,11,.15); color: var(--amber); }
+    .badge-approved { background: rgba(34,197,94,.15);  color: var(--green); }
+    .badge-rejected { background: rgba(239,68,68,.15);  color: var(--red); }
+    .badge-info     { background: rgba(56,189,248,.15); color: var(--accent); }
+    .badge-success  { background: rgba(34,197,94,.15);  color: var(--green); }
+    .badge-warning  { background: rgba(245,158,11,.15); color: var(--amber); }
+    .badge-error    { background: rgba(239,68,68,.15);  color: var(--red); }
+    .badge-admin    { background: rgba(167,139,250,.15); color: var(--purple); }
+    .badge-officer  { background: rgba(56,189,248,.15); color: var(--accent); }
+    .badge-citizen  { background: rgba(148,163,184,.15); color: var(--muted); }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">DESC <span>Citizen Portal</span></a>
+  <div class="nav-links">
+    {% if session.user_email %}
+      {% if session.user_role in ('admin', 'officer') %}
+        <a href="{{ url_for('portal') }}" {% if request.endpoint == 'portal' %}class="active"{% endif %}>My Portal</a>
+        <a href="{{ url_for('admin') }}" {% if request.endpoint == 'admin' %}class="active"{% endif %}>Admin Panel</a>
+      {% else %}
+        <a href="{{ url_for('portal') }}" {% if request.endpoint == 'portal' %}class="active"{% endif %}>My Portal</a>
+      {% endif %}
+      <div class="user-badge">
+        <div class="avatar">{{ session.user_name[0] | upper }}</div>
+        <span>{{ session.user_name }}</span>
+      </div>
+      <a href="{{ url_for('logout') }}">Sign Out</a>
+    {% else %}
+      <a href="{{ url_for('login') }}">Sign In</a>
+      <a href="{{ url_for('register') }}" style="background:var(--accent2);color:#fff;padding:.4rem .9rem;border-radius:6px;">Register</a>
+    {% endif %}
+  </div>
+</nav>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-area">
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer>DESC Citizen Services Portal &nbsp;·&nbsp; Tender: DESC-MRD-2026-CNC-088</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

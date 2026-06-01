@@ -87,9 +87,15 @@ The evaluation board can watch pods scale from 2 to 15 replicas live, with the G
 │   │   ├── requirements.txt
 │   │   ├── Dockerfile
 │   │   └── tests/
-│   ├── frontend/              # Flask HTML UI, proxies to gateway (:3000)
-│   │   ├── app.py
-│   │   ├── templates/index.html
+│   ├── frontend/              # Flask citizen portal + admin panel (:5000)
+│   │   ├── app.py             # Session auth, role guards, proxy routes
+│   │   ├── templates/
+│   │   │   ├── base.html      # Shared navbar, flash messages
+│   │   │   ├── landing.html   # Public home page (no tech content)
+│   │   │   ├── login.html     # Email + password sign-in
+│   │   │   ├── register.html  # New account (citizen / officer)
+│   │   │   ├── portal.html    # Citizen dashboard (records, notifications, profile)
+│   │   │   └── admin.html     # Admin panel (users, health, stress, system)
 │   │   ├── requirements.txt
 │   │   ├── Dockerfile
 │   │   └── tests/
@@ -148,14 +154,19 @@ The evaluation board can watch pods scale from 2 to 15 replicas live, with the G
 The RFP explicitly requires containerising monolithic components into isolated microservices. The backend is split into **four independently deployable services** behind an API Gateway:
 
 ```
-Frontend (Flask)
-    └─► API Gateway (FastAPI :8000)      ← single ALB target, /api/* routing
-            ├─► User Service (:8001)     → PostgreSQL (users table)
-            ├─► Records Service (:8002)  → PostgreSQL (records) + Redis cache + /stress HPA trigger
-            └─► Notification Svc (:8003) → PostgreSQL (notifications) + Redis pub/sub
+Browser
+  └─► Frontend (Flask :5000)         ← Citizen portal + Admin panel (session auth)
+        └─► API Gateway (FastAPI :8000)   ← single ALB target, /api/* routing
+                ├─► User Service (:8001)      → PostgreSQL (users table)
+                ├─► Records Service (:8002)   → PostgreSQL (records) + Redis cache + /stress HPA trigger
+                └─► Notification Svc (:8003)  → PostgreSQL (notifications) + Redis pub/sub
 ```
 
-Each service has its own **Deployment, HPA, Service, and Prometheus ServiceMonitor**. They communicate only through internal Kubernetes DNS (ClusterIP) — none are exposed directly to the internet. The API Gateway is the sole external-facing backend entry point.
+The **Frontend** serves two distinct experiences based on the authenticated user's role:
+- **Citizens** — landing page, login/register, citizen portal (submit records, read notifications, view profile)
+- **Admins / Officers** — full admin panel (user management, service health, notification publishing, stress trigger, architecture info)
+
+Each backend service has its own **Deployment, HPA, Service, and Prometheus ServiceMonitor**. They communicate only through internal Kubernetes DNS (ClusterIP) — none are exposed directly to the internet. The API Gateway is the sole external-facing backend entry point.
 
 > **Why not more services?** Four domain services is the sweet spot for a demo — granular enough to show microservices patterns (independent scaling, separate data ownership, event-driven pub/sub) without the overhead of a service mesh or distributed tracing setup that would distract from the core demonstration.
 
@@ -253,7 +264,7 @@ The IAM user/role running `terraform apply` needs:
 
 ## Option A — Local Development with Docker Compose
 
-This runs the full stack locally — 5 microservices, PostgreSQL, Redis, Prometheus, and Grafana — with no AWS account needed. Ideal for developers iterating on the application code and for demonstrating live metrics.
+This runs the full stack locally — 5 microservices, PostgreSQL, Redis, Prometheus, and Grafana — with no AWS account needed. Ideal for developers iterating on the application code and demonstrating live metrics.
 
 ```bash
 # 1. Clone the repository
@@ -264,22 +275,29 @@ cd desc-cloudnative-demo
 cd app/
 docker compose up --build
 
-# 3. Application endpoints
-# http://localhost:3500           ← Frontend tabbed UI (Records | Users | Notifications)
-# http://localhost:8000/docs      ← Gateway API docs (FastAPI Swagger UI)
-# http://localhost:8000/api/health ← Aggregated health check (all 3 microservices)
+# 3. Open the citizen portal
+# http://localhost:3500   ← landing page (no pod names, no architecture, no tech jargon)
+#
+# Login with ahmed.khan@desc.gov.pk / desc2026
+#   → role=admin  → redirected to Admin Panel
+#
+# Login with tariq@desc.gov.pk / desc2026
+#   → role=citizen → redirected to Citizen Portal
+#
+# Citizen visiting /admin → flash "Access restricted to administrators." → back to /portal
 
-# 4. Observability endpoints
-# http://localhost:9095           ← Prometheus (targets: Status → Targets)
+# 4. Observability
+# http://localhost:9095           ← Prometheus (Status → Targets: 5 targets UP)
 # http://localhost:3100           ← Grafana  (admin / desc2026)
-#   → Dashboard: Dashboards → DESC → DESC — Microservices Platform (auto-loaded)
+#   → Dashboards → DESC → DESC — Microservices Platform
 
-# 5. Test each microservice directly (bypassing gateway)
-curl http://localhost:8001/users           # User Service
-curl http://localhost:8002/records         # Records Service
-curl http://localhost:8003/notifications   # Notification Service
+# 5. Test microservices directly via the gateway API
+curl http://localhost:8000/api/users
+curl http://localhost:8000/api/records
+curl http://localhost:8000/api/notifications
+curl http://localhost:8000/api/health      # aggregated health of all services
 
-# 6. Trigger CPU stress via gateway → records service (generates metrics)
+# 6. Trigger CPU stress (also available in Admin Panel → System)
 curl "http://localhost:8000/api/stress?n=10000"
 
 # 7. Tear down
@@ -290,8 +308,8 @@ docker compose down -v
 
 | Container | Port | Role |
 |-----------|------|------|
-| `frontend` | 3500→5000 | HTML UI (Flask) |
-| `gateway` | 8000 | API Gateway — routes `/api/*` |
+| `frontend` | 3500→5000 | Citizen portal + Admin panel (Flask, session auth) |
+| `gateway` | 8000 | API Gateway — routes `/api/*` to domain services |
 | `user-svc` | 8001 | User Service (PostgreSQL only) |
 | `records-svc` | 8002 | Records Service (PostgreSQL + Redis cache) |
 | `notification-svc` | 8003 | Notification Service (PostgreSQL + Redis pub/sub) |
@@ -299,6 +317,30 @@ docker compose down -v
 | `redis:7-alpine` | internal | Redis (cache + pub/sub) |
 | `prometheus:v2.51.2` | 9095→9090 | Scrapes all 5 app services every 15 s |
 | `grafana:10.4.2` | 3100→3000 | Pre-provisioned DESC dashboard (20 panels) |
+
+**Frontend pages:**
+
+| URL | Access | Content |
+|-----|--------|---------|
+| `/` | Public | Hero landing page — no technical content |
+| `/login` | Public | Email + password sign-in; demo hint shown |
+| `/register` | Public | Name, email, password, role (citizen / officer) |
+| `/portal` | Citizen+ | My Records (submit/view), Notifications (read-only), My Profile |
+| `/admin` | Admin / Officer | Dashboard (health cards, stats), Users, Records, Notifications (publish), System (stress, k6, architecture) |
+
+**Default demo accounts (all use password `desc2026`):**
+
+| Email | Role | Redirects to | Notes |
+|-------|------|-------------|-------|
+| `ahmed.khan@desc.gov.pk` | admin | `/admin` → Admin Panel | Full access: users, health, stress trigger |
+| `fatima.bibi@desc.gov.pk` | officer | `/admin` → Admin Panel | Same access as admin |
+| `imran.gul@desc.gov.pk` | officer | `/admin` → Admin Panel | Same access as admin |
+| `tariq@desc.gov.pk` | citizen | `/portal` → Citizen Portal | Records, notifications, profile only |
+| `zainab@desc.gov.pk` | citizen | `/portal` → Citizen Portal | Records, notifications, profile only |
+
+> Visiting `/admin` as a citizen redirects to `/portal` with a flash message: **"Access restricted to administrators."**
+>
+> To create a new account, use the **Register** page (`/register`). Officers get admin panel access; citizens get the citizen portal.
 
 **Grafana dashboard panels:**
 - **Overview row** — gateway req/s, 5xx error %, upstream p95 latency, cache hit ratio (4 stat cards)
@@ -492,39 +534,58 @@ kubectl get configmap desc-webapp-grafana-dashboard -n desc-app -o jsonpath='{.d
 
 ## Running the Live Demo (Evaluation Board)
 
-This is the sequence to demonstrate auto-scaling in front of the evaluation board.
+This is the sequence to demonstrate the full system — citizen portal, auto-scaling, and live metrics — in front of the evaluation board.
 
-**Setup two terminal windows side by side:**
+### Window 1 — Citizen Portal (projector browser)
+```
+http://<ALB-DNS>/                          # landing page
+http://<ALB-DNS>/login                     # sign in as ahmed.khan@desc.gov.pk / desc2026
+                                           # → Admin Panel opens (service health, user table)
+http://<ALB-DNS>/login                     # sign in as tariq@desc.gov.pk / desc2026
+                                           # → Citizen Portal (submit a record, view notifications)
+```
 
-**Terminal 1 — Watch HPA scaling live:**
+### Window 2 — HPA watch (terminal)
 ```bash
 watch -n2 "kubectl get hpa,pods -n desc-app --no-headers | column -t"
 ```
 
-**Terminal 2 — Trigger the spike load:**
+### Window 3 — Trigger the spike load (terminal)
 ```bash
 export BASE_URL=http://$(kubectl get ingress -n desc-app \
   -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
 
+# Quick spike: 0 → 300 VUs in 30 s
 k6 run --env BASE_URL=$BASE_URL load-testing/k6/stress-test.js
+
+# Or trigger from the Admin Panel UI:
+# Admin → System → "Trigger CPU Stress" / "Burst (×10)"
+```
+
+### Window 4 — Grafana (projector second tab)
+```
+http://localhost:3000  (admin / DescAdmin@2026!)
+Dashboards → DESC → DESC — Microservices Platform
+Set time range: Last 30 minutes, auto-refresh: 10 s
 ```
 
 **Expected timeline:**
 
 | Time | What happens |
 |------|-------------|
-| T+0s | k6 ramps to 300 virtual users, all hitting `/api/stress` |
-| T+15s | Backend CPU climbs past 50% threshold |
-| T+30s | HPA fires — backend replicas: 2 → 6 |
-| T+60s | HPA continues — backend replicas: 6 → 12 |
+| T+0s | k6 ramps to 300 virtual users hitting `/api/stress` via gateway |
+| T+15s | Records Service CPU climbs past 50% threshold |
+| T+30s | HPA fires — records-svc replicas: 2 → 6 |
+| T+60s | HPA continues — records-svc replicas: 6 → 15 |
 | T+90s | If nodes are insufficient, Cluster Autoscaler adds EC2 nodes |
 | T+5m | k6 ramps down — CPU drops below threshold |
-| T+10m | HPA scale-down stabilisation window expires — replicas: 12 → 2 |
+| T+10m | HPA scale-down stabilisation window expires — replicas: 15 → 2 |
 
-**Grafana (open in a third window on the projector):**
-- Navigate to **Dashboards → DESC → DESC USE Metrics Dashboard**
-- Set time range to **Last 30 minutes**
-- The evaluation board watches CPU Utilization %, HPA Replicas, and P95 Latency panels update in real-time
+**What to point out on the Grafana dashboard:**
+- Gateway Request Rate climbing → 5xx % stays at 0 (resilient)
+- Upstream p95 latency rising under load, then recovering
+- Cache hit ratio (Records Service) — subsequent calls served from Redis
+- DB query p95 by service — shows isolation (user-svc unaffected by records-svc load)
 
 ---
 

@@ -1,0 +1,140 @@
+name: Release — Build, Push & Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "helm/**"
+      - ".github/workflows/release.yml"
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  REGISTRY: docker.io
+  IMAGE_TAG: sha-${{ github.sha && github.sha[:7] || 'latest' }}
+
+jobs:
+  build-and-push:
+    name: Build & Push — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: gateway
+            context: app/gateway
+            image: desc-gateway
+          - service: user-service
+            context: app/user-service
+            image: desc-user-service
+          - service: records-service
+            context: app/records-service
+            image: desc-records-service
+          - service: notification-service
+            context: app/notification-service
+            image: desc-notification-service
+          - service: frontend
+            context: app/frontend
+            image: desc-frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  update-helm-values:
+    name: Update Helm image tags
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=$(echo $GITHUB_SHA | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Install yq
+        run: |
+          wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Update values.yaml — image registry and tags
+        env:
+          SHORT_SHA: ${{ steps.sha.outputs.short }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          VALUES=helm/desc-webapp/values.yaml
+
+          # Set global image registry to DockerHub username
+          yq -i ".global.imageRegistry = \"${DOCKERHUB_USERNAME}\"" "$VALUES"
+
+          # Update each service image tag to the new sha-<short> tag
+          yq -i ".gateway.image.tag           = \"sha-${SHORT_SHA}\"" "$VALUES"
+          yq -i ".userService.image.tag        = \"sha-${SHORT_SHA}\"" "$VALUES"
+          yq -i ".recordsService.image.tag     = \"sha-${SHORT_SHA}\"" "$VALUES"
+          yq -i ".notificationService.image.tag = \"sha-${SHORT_SHA}\"" "$VALUES"
+          yq -i ".frontend.image.tag           = \"sha-${SHORT_SHA}\"" "$VALUES"
+
+      - name: Commit updated values.yaml
+        env:
+          SHORT_SHA: ${{ steps.sha.outputs.short }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add helm/desc-webapp/values.yaml
+          git diff --cached --quiet && echo "No changes" && exit 0
+
+          git commit -m "chore(release): bump image tags to sha-${SHORT_SHA} [skip ci]"
+          git push
+
+      - name: Summary
+        env:
+          SHORT_SHA: ${{ steps.sha.outputs.short }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          echo "### Release complete :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Service | Image |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          for svc in desc-gateway desc-user-service desc-records-service desc-notification-service desc-frontend; do
+            echo "| ${svc} | \`${DOCKERHUB_USERNAME}/${svc}:sha-${SHORT_SHA}\` |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "ArgoCD will auto-sync within 3 minutes." >> "$GITHUB_STEP_SUMMARY"

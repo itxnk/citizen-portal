@@ -70,6 +70,7 @@ Route 53 → AWS WAF → Application Load Balancer (:443)
           ▼                               ▼
     Frontend (Flask)              API Gateway (FastAPI)
     Port 5000 · HPA 2–10          Port 8000 · HPA 2–10
+    Citizen portal + Admin panel
                                           │
               ┌───────────────────────────┼──────────────────────────┐
               │                           │                          │
@@ -119,7 +120,30 @@ The legacy monolith is decomposed along **domain boundaries** — each service o
 | User Service | 8001 | Citizen profiles | PostgreSQL `users` | No Redis dependency — demonstrates minimal coupling |
 | Records Service | 8002 | Applications/records | PostgreSQL `records` + Redis | Cache-aside (30s TTL), `/stress` CPU endpoint for HPA demo |
 | Notification Service | 8003 | System announcements | PostgreSQL `notifications` + Redis | Pub/sub publish to `desc:notifications` channel on every POST |
-| Frontend | 5000 | UI | — | Flask, proxies all `/api/*` to Gateway |
+| Frontend | 5000 | Citizen portal + Admin panel | — | Flask; session-based auth; role-separated views (citizen / admin) |
+
+### Frontend Architecture — Citizen Portal & Admin Panel
+
+The Frontend service provides two fully separated user experiences, gated by Flask session-based authentication:
+
+**Public pages (unauthenticated):**
+- `/` — Clean landing page: service description, sign-in and register CTAs. No technical content, pod names, or infrastructure references.
+- `/login` — Email + password form. Verifies credentials against the User Service; sets a signed session cookie.
+- `/register` — Creates a new account via the User Service API; role choices limited to `citizen` or `officer`.
+
+**Citizen Portal (`/portal`, role: citizen / officer / admin):**
+- **My Records** — Submit a new service request (title, description); view own records with status badges (pending / approved / rejected).
+- **Notifications** — Read-only list of system announcements from the Notification Service.
+- **My Profile** — Display name, email, and role.
+
+**Admin Panel (`/admin`, role: admin / officer only):**
+- **Dashboard** — Live service health cards (from `/api/health`), quick stats (total users/records/notifications/healthy services), pod/node/gateway info.
+- **Users** — Full user table; add-user form (all roles including admin).
+- **Records** — All records with data-source tag (cache vs database), status management.
+- **Notifications** — Publish form (title, message, type); full notifications table; Redis pub/sub channel reference.
+- **System** — Microservices architecture diagram; CPU stress trigger (prime calculation, single or burst ×10); k6 and kubectl command reference for the HPA demo.
+
+**Auth implementation:** Flask `session` (signed cookie, `SECRET_KEY` env var). Passwords are SHA-256 hashed and stored in-process (acceptable for demo; no external auth service required). The five seeded demo users default to password `desc2026`. Route guards use `@require_login` and `@require_admin` decorators — citizens attempting to access `/admin` are redirected to `/portal` with a flash message.
 
 ### Docker Build Strategy
 
@@ -505,7 +529,7 @@ frontend_requests_total{path, status}                 counter
 | GitOps CD | ArgoCD | v2.10 | Kubernetes-native; self-healing; real-time sync status visible in UI |
 | CI | GitHub Actions | — | Native to GitHub; path-filtered triggers; matrix builds for parallel service CI |
 | API Framework | FastAPI (Python 3.11) | 0.111+ | Async, Prometheus-native, OpenAPI docs auto-generated |
-| UI Framework | Flask (Python 3.11) | 3.x | Lightweight; zero client-side JS framework overhead for demo |
+| UI Framework | Flask (Python 3.11) | 3.x | Lightweight; session-based auth (no external auth service); role-separated citizen portal and admin panel |
 | Database | PostgreSQL 15 | via RDS | ACID, asyncpg async driver, Multi-AZ failover |
 | Cache / Pub-Sub | Redis 7 | via ElastiCache | In-memory speed; unified cache + pub/sub in one service |
 | Monitoring | kube-prometheus-stack | v0.73 | De-facto Kubernetes monitoring; includes operator, Grafana, Alertmanager |
